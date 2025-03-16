@@ -646,7 +646,6 @@ function generateXRechnung(data) {
     
     // Tax category code - S for standard rate, Z for zero rate (reverse charge)
     const taxCategoryCode = data.reverseCharge ? 'Z' : 'S';
-    const taxTypeCode = data.reverseCharge ? 'AE' : 'VAT'; // AE = VAT Reverse Charge
     
     // Format dates correctly for XML (YYYY-MM-DD)
     const formatXmlDate = (dateString) => {
@@ -829,11 +828,15 @@ function generateXRechnung(data) {
                 </cac:Country>
             </cac:PostalAddress>
             
+            <cac:Contact>
+                <cbc:Name>Contact</cbc:Name>
+            </cac:Contact>
+            
             <cac:PartyLegalEntity>
                 <cbc:RegistrationName>${data.clientName}</cbc:RegistrationName>
             </cac:PartyLegalEntity>
             
-            <!-- Add one of the expected elements -->
+            <!-- Add Person element instead of PartyTaxScheme -->
             <cac:Person>
                 <cbc:FirstName>Contact</cbc:FirstName>
                 <cbc:FamilyName>Person</cbc:FamilyName>
