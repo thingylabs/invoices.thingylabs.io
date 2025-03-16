@@ -93,7 +93,9 @@ function generateZugferd(data) {
     const clientAddressParts = extractAddressParts(data.clientAddress);
 
     // Extract bank information
-    const bankInfo = data.companyBankInfo ? data.companyBankInfo.split('\n').map((line) => line.trim()).filter((line) => line) : [];
+    const bankInfo = data.companyBankInfo
+        ? data.companyBankInfo.split('\n').map((line) => line.trim()).filter((line) => line)
+        : [];
     const bankAccount = bankInfo.length > 0 ? bankInfo[0] : '';
     const bankBIC = bankInfo.length > 1 ? bankInfo[1] : '';
 
