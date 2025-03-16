@@ -535,8 +535,9 @@ footer {
 }
 
 /* Print styles */
+/* Add or modify this in styles.css */
 @media print {
-    nav, footer, .form-section, .action-buttons {
+    nav, footer, .form-section, .action-buttons, h1 {
         display: none;
     }
     
@@ -545,15 +546,24 @@ footer {
         max-width: none;
         padding: 0;
         margin: 0;
+        display: block;
     }
     
     .preview-section {
         width: 100%;
+        padding: 0;
+        margin: 0;
+        background: none;
+    }
+    
+    .preview-section h2 {
+        display: none;
     }
     
     .invoice-preview {
-        padding: 20px;
+        padding: 0;
         border: none;
         box-shadow: none;
+        margin: 0;
     }
 }
