@@ -84,7 +84,6 @@ function addLineItem() {
     updatePreview();
 }
 
-
 // Function to set up auto-save for all form inputs
 function setupAutoSave() {
     // Get all form inputs
@@ -324,128 +323,6 @@ function loadFormState() {
         console.error('Error loading saved form state:', error);
         // Add one empty line item as fallback
         addLineItem();
-    }
-}
-
-// Function to ensure there's exactly one empty line item row
-function ensureSingleEmptyLineItem() {
-    const lineItemsContainer = document.getElementById('lineItems');
-    if (!lineItemsContainer) return;
-    
-    // Keep only the first row
-    while (lineItemsContainer.children.length > 1) {
-        lineItemsContainer.removeChild(lineItemsContainer.lastChild);
-    }
-    
-    // Clear the first row's inputs
-    if (lineItemsContainer.children.length > 0) {
-        const firstRow = lineItemsContainer.children[0];
-        const inputs = firstRow.querySelectorAll('input');
-        inputs.forEach(input => {
-            input.value = '';
-        });
-    }
-}
-
-// Function to populate form fields with saved data
-function populateFormFields(data) {
-    // Populate simple fields
-    for (const key in data) {
-        if (key === 'lineItems') continue; // Handle line items separately
-        
-        const element = document.getElementById(key);
-        if (element) {
-            if (element.type === 'checkbox') {
-                element.checked = data[key];
-            } else {
-                element.value = data[key];
-            }
-        }
-    }
-    
-    // Handle line items
-    const lineItemsContainer = document.getElementById('lineItems');
-    if (!lineItemsContainer) return;
-    
-    // Clear all existing line items
-    while (lineItemsContainer.children.length > 0) {
-        lineItemsContainer.removeChild(lineItemsContainer.lastChild);
-    }
-    
-    // If we have saved line items, add them
-    if (Array.isArray(data.lineItems) && data.lineItems.length > 0) {
-        // Get the template row from the DOM or create one if needed
-        let templateRow;
-        if (lineItemsContainer.children.length > 0) {
-            templateRow = lineItemsContainer.children[0];
-        } else {
-            // If no template exists, we need to create one
-            // This is a fallback and might need adjustment based on your HTML structure
-            templateRow = document.createElement('div');
-            templateRow.className = 'line-item row mb-2';
-            templateRow.innerHTML = `
-                <div class="col-5">
-                    <input type="text" class="form-control" placeholder="Description">
-                </div>
-                <div class="col-2">
-                    <input type="number" class="form-control" placeholder="Qty">
-                </div>
-                <div class="col-2">
-                    <input type="number" class="form-control" placeholder="Price">
-                </div>
-                <div class="col-2">
-                    <input type="number" class="form-control" placeholder="VAT %">
-                </div>
-                <div class="col-1">
-                    <button type="button" class="btn btn-danger removeLineItem">×</button>
-                </div>
-            `;
-        }
-        
-        // Add each line item
-        data.lineItems.forEach(item => {
-            // Clone the template
-            const row = templateRow.cloneNode(true);
-            
-            // Fill in the values
-            const inputs = row.querySelectorAll('input');
-            if (inputs.length >= 3) {
-                inputs[0].value = item.description || '';
-                inputs[1].value = item.quantity || '';
-                inputs[2].value = item.price || '';
-                if (inputs.length >= 4) {
-                    inputs[3].value = item.vat || '';
-                }
-            }
-            
-            // Add event listener to the remove button
-            const removeButton = row.querySelector('.removeLineItem');
-            if (removeButton) {
-                removeButton.addEventListener('click', function() {
-                    row.remove();
-                    saveFormState();
-                    updatePreview();
-                });
-            }
-            
-            // Add input event listeners
-            inputs.forEach(input => {
-                input.addEventListener('input', function() {
-                    saveFormState();
-                    updatePreview();
-                });
-                input.addEventListener('change', function() {
-                    saveFormState();
-                    updatePreview();
-                });
-            });
-            
-            // Add the row to the container
-            lineItemsContainer.appendChild(row);
-        });
-    } else {
-        // If no saved line items, add one empty row
-        ensureSingleEmptyLineItem();
     }
 }
 
