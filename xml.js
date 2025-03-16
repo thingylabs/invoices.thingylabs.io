@@ -647,9 +647,27 @@ function generateXRechnung(data) {
     const taxCategoryCode = data.reverseCharge ? 'Z' : 'S';
     const taxTypeCode = data.reverseCharge ? 'AE' : 'VAT'; // AE = VAT Reverse Charge
     
-    // Format the current date for document creation
-    const now = new Date();
-    const formattedNow = now.toISOString().split('T')[0].replace(/-/g, '');
+    // Format dates correctly for XML (YYYY-MM-DD)
+    const formatXmlDate = (dateString) => {
+        if (!dateString) return '';
+        
+        // If already in YYYY-MM-DD format, return as is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            return dateString;
+        }
+        
+        // Try to parse and format the date
+        try {
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return '';
+        }
+    };
+    
+    const invoiceDate = formatXmlDate(data.invoiceDate);
+    const deliveryStartDate = formatXmlDate(data.deliveryDateStart);
+    const deliveryEndDate = formatXmlDate(data.deliveryDateEnd);
     
     // Extract postal code, city, and street from addresses
     const extractAddressParts = (address) => {
@@ -694,7 +712,7 @@ function generateXRechnung(data) {
     <cbc:ID>${data.invoiceNumber}</cbc:ID>
     
     <!-- BT-2 Invoice issue date -->
-    <cbc:IssueDate>${data.invoiceDate.replace(/-/g, '')}</cbc:IssueDate>
+    <cbc:IssueDate>${invoiceDate}</cbc:IssueDate>
     
     <!-- BT-3 Invoice type code -->
     <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
@@ -703,7 +721,7 @@ function generateXRechnung(data) {
     <cbc:Note>${data.reverseCharge ? 'Reverse charge: VAT liability transfers to the recipient of this invoice' : ''}</cbc:Note>
     
     <!-- BT-7 Tax point date -->
-    <cbc:TaxPointDate>${data.invoiceDate.replace(/-/g, '')}</cbc:TaxPointDate>
+    <cbc:TaxPointDate>${invoiceDate}</cbc:TaxPointDate>
     
     <!-- BT-5 Invoice currency code -->
     <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
@@ -716,8 +734,8 @@ function generateXRechnung(data) {
     
     <!-- BG-1 Invoice period -->
     <cac:InvoicePeriod>
-        ${data.deliveryDateStart ? `<cbc:StartDate>${data.deliveryDateStart.replace(/-/g, '')}</cbc:StartDate>` : ''}
-        ${data.deliveryDateEnd ? `<cbc:EndDate>${data.deliveryDateEnd.replace(/-/g, '')}</cbc:EndDate>` : ''}
+        ${deliveryStartDate ? `<cbc:StartDate>${deliveryStartDate}</cbc:StartDate>` : ''}
+        ${deliveryEndDate ? `<cbc:EndDate>${deliveryEndDate}</cbc:EndDate>` : ''}
     </cac:InvoicePeriod>
     
     <!-- BG-24 Additional supporting documents -->
@@ -815,13 +833,8 @@ function generateXRechnung(data) {
         <cbc:PaymentID>${data.invoiceNumber}</cbc:PaymentID>
         <cac:PayeeFinancialAccount>
             <cbc:ID>${data.companyBankInfo.split('\n')[0]}</cbc:ID>
-            <cac:FinancialInstitutionBranch>
-                <cbc:ID>${data.companyBankInfo.split('\n')[1] || ''}</cbc:ID>
-            </cac:FinancialInstitutionBranch>
         </cac:PayeeFinancialAccount>
     </cac:PaymentMeans>
-    
-    <!-- BG-20 Document level allowances -->
     
     <!-- BG-22 Document totals -->
     <cac:TaxTotal>
@@ -882,4 +895,3 @@ function generateXRechnung(data) {
     
     return xml;
 }
-
