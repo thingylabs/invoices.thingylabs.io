@@ -39,33 +39,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to add a new line item
 function addLineItem() {
-    const lineItemsContainer = document.getElementById('lineItems');
-    if (!lineItemsContainer) return;
+    const container = document.getElementById('lineItemsContainer');
+    if (!container) return;
     
-    // Get the template row (first row)
-    const templateRow = lineItemsContainer.children[0];
-    if (!templateRow) return;
+    const newItem = document.createElement('div');
+    newItem.className = 'line-item';
+    newItem.innerHTML = `
+        <input type="text" placeholder="Description" class="item-description">
+        <input type="number" placeholder="Quantity" class="item-quantity" min="1" value="1">
+        <input type="number" placeholder="Price" class="item-price" min="0" step="0.01">
+        <input type="number" placeholder="VAT %" class="item-vat" min="0" value="19">
+        <button type="button" class="remove-item">✕</button>
+    `;
     
-    // Clone the template
-    const newRow = templateRow.cloneNode(true);
-    
-    // Clear input values in the new row
-    const inputs = newRow.querySelectorAll('input');
-    inputs.forEach(input => {
-        input.value = '';
-    });
-    
-    // Add event listener to the remove button
-    const removeButton = newRow.querySelector('.removeLineItem');
-    if (removeButton) {
-        removeButton.addEventListener('click', function() {
-            newRow.remove();
-            saveFormState();
-            updatePreview();
-        });
-    }
-    
-    // Add input event listeners for auto-save
+    // Add event listeners to inputs for auto-save
+    const inputs = newItem.querySelectorAll('input');
     inputs.forEach(input => {
         input.addEventListener('input', function() {
             saveFormState();
@@ -77,9 +65,23 @@ function addLineItem() {
         });
     });
     
-    // Add the new row to the container
-    lineItemsContainer.appendChild(newRow);
+    // Add event listener to remove button
+    const removeButton = newItem.querySelector('.remove-item');
+    if (removeButton) {
+        removeButton.addEventListener('click', function() {
+            newItem.remove();
+            saveFormState();
+            updatePreview();
+        });
+    }
+    
+    container.appendChild(newItem);
+    
+    // Update the form state and preview
+    saveFormState();
+    updatePreview();
 }
+
 
 // Function to set up auto-save for all form inputs
 function setupAutoSave() {
@@ -114,97 +116,118 @@ function setupAutoSave() {
 // Function to update the preview
 function updatePreview() {
     const data = collectFormData();
+    const preview = document.getElementById('invoicePreview');
     
-    // Update invoice number and date in preview
-    document.getElementById('previewInvoiceNumber').textContent = data.invoiceNumber || '';
-    document.getElementById('previewInvoiceDate').textContent = data.invoiceDate || '';
-    
-    // Update company details in preview
-    document.getElementById('previewCompanyName').textContent = data.companyName || '';
-    document.getElementById('previewCompanyAddress').textContent = data.companyAddress || '';
-    document.getElementById('previewCompanyContact').textContent = 
-        `${data.companyEmail ? 'Email: ' + data.companyEmail : ''}
-         ${data.companyPhone ? 'Phone: ' + data.companyPhone : ''}`.trim();
-    document.getElementById('previewCompanyTaxInfo').textContent = 
-        `${data.companyTaxId ? 'Tax ID: ' + data.companyTaxId : ''}
-         ${data.companyRegNumber ? 'Reg #: ' + data.companyRegNumber : ''}`.trim();
-    
-    // Update client details in preview
-    document.getElementById('previewClientName').textContent = data.clientName || '';
-    document.getElementById('previewClientAddress').textContent = data.clientAddress || '';
-    
-    // Update delivery dates in preview
-    const deliveryPeriod = [];
-    if (data.deliveryDateStart) deliveryPeriod.push('From: ' + data.deliveryDateStart);
-    if (data.deliveryDateEnd) deliveryPeriod.push('To: ' + data.deliveryDateEnd);
-    document.getElementById('previewDeliveryPeriod').textContent = deliveryPeriod.join(' ');
-    
-    // Update line items in preview
-    const lineItemsTable = document.getElementById('previewLineItems');
-    if (!lineItemsTable) return;
-    
-    // Clear existing rows except header
-    while (lineItemsTable.rows.length > 1) {
-        lineItemsTable.deleteRow(1);
+    if (!preview) {
+        console.error('Invoice preview element not found');
+        return;
     }
     
     // Calculate totals
     let subtotal = 0;
     let totalVat = 0;
     
-    // Add line items to preview table
     data.lineItems.forEach(item => {
-        const quantity = parseFloat(item.quantity) || 0;
-        const price = parseFloat(item.price) || 0;
-        const vat = parseFloat(item.vat) || 0;
+        const itemTotal = item.quantity * item.price;
+        const itemVat = data.reverseCharge ? 0 : (itemTotal * (item.vat / 100));
         
-        const lineTotal = quantity * price;
-        const lineVat = lineTotal * (vat / 100);
-        
-        subtotal += lineTotal;
-        totalVat += lineVat;
-        
-        const row = lineItemsTable.insertRow();
-        
-        // Description
-        const cellDesc = row.insertCell();
-        cellDesc.textContent = item.description;
-        
-        // Quantity
-        const cellQty = row.insertCell();
-        cellQty.textContent = quantity;
-        cellQty.className = 'text-right';
-        
-        // Price
-        const cellPrice = row.insertCell();
-        cellPrice.textContent = price.toFixed(2) + ' €';
-        cellPrice.className = 'text-right';
-        
-        // VAT
-        const cellVat = row.insertCell();
-        cellVat.textContent = vat + '%';
-        cellVat.className = 'text-right';
-        
-        // Line total
-        const cellTotal = row.insertCell();
-        cellTotal.textContent = lineTotal.toFixed(2) + ' €';
-        cellTotal.className = 'text-right';
+        subtotal += itemTotal;
+        totalVat += itemVat;
     });
     
-    // Update totals in preview
     const total = subtotal + totalVat;
-    document.getElementById('previewSubtotal').textContent = subtotal.toFixed(2) + ' €';
-    document.getElementById('previewVat').textContent = totalVat.toFixed(2) + ' €';
-    document.getElementById('previewTotal').textContent = total.toFixed(2) + ' €';
     
-    // Update bank info in preview
-    document.getElementById('previewBankInfo').textContent = data.companyBankInfo || '';
-    
-    // Update reverse charge notice if applicable
-    const reverseChargeNotice = document.getElementById('reverseChargeNotice');
-    if (reverseChargeNotice) {
-        reverseChargeNotice.style.display = data.reverseCharge ? 'block' : 'none';
+    // Format the payment terms note
+    let paymentNote = '';
+    if (data.paymentTerms && data.dueDate) {
+        const formattedDueDate = new Date(data.dueDate).toLocaleDateString('en-GB');
+        paymentNote = `Payment within ${data.paymentTerms} days. Due date: ${formattedDueDate}`;
     }
+    
+    // Generate HTML for the preview
+    preview.innerHTML = `
+        <div class="invoice-header">
+            <div class="company-info">
+                <h2>${data.companyName}</h2>
+                <p>${data.companyAddress.replace(/\n/g, '<br>')}</p>
+                <p>Email: ${data.companyEmail}</p>
+                <p>Phone: ${data.companyPhone}</p>
+                <p>VAT: ${data.companyTaxId}</p>
+                <p>Reg: ${data.companyRegNumber}</p>
+            </div>
+            <div class="invoice-details">
+                <h1>INVOICE</h1>
+                <p><strong>Invoice Number:</strong> ${data.invoiceNumber}</p>
+                <p><strong>Date:</strong> ${data.invoiceDate ? new Date(data.invoiceDate).toLocaleDateString('en-GB') : ''}</p>
+                ${data.dueDate ? `<p><strong>Due Date:</strong> ${new Date(data.dueDate).toLocaleDateString('en-GB')}</p>` : ''}
+                ${data.deliveryDateStart && data.deliveryDateEnd ? 
+                    `<p><strong>Service Period:</strong> ${new Date(data.deliveryDateStart).toLocaleDateString('en-GB')} - ${new Date(data.deliveryDateEnd).toLocaleDateString('en-GB')}</p>` : ''}
+            </div>
+        </div>
+        
+        <div class="client-section">
+            <h3>Bill To:</h3>
+            <p><strong>${data.clientName}</strong></p>
+            <p>${data.clientAddress.replace(/\n/g, '<br>')}</p>
+        </div>
+        
+        <table class="invoice-items">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>VAT</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.lineItems.map(item => {
+                    const itemTotal = item.quantity * item.price;
+                    return `
+                    <tr>
+                        <td>${item.description}</td>
+                        <td>${item.quantity}</td>
+                        <td>€${item.price.toFixed(2)}</td>
+                        <td>${data.reverseCharge ? 'RC' : item.vat + '%'}</td>
+                        <td>€${itemTotal.toFixed(2)}</td>
+                    </tr>
+                    `;
+                }).join('')}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-right"><strong>Subtotal:</strong></td>
+                    <td>€${subtotal.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td colspan="4" class="text-right"><strong>VAT:</strong></td>
+                    <td>€${totalVat.toFixed(2)}</td>
+                </tr>
+                <tr class="total-row">
+                    <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                    <td>€${total.toFixed(2)}</td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <div class="invoice-footer">
+            ${data.reverseCharge ? '<p><strong>Reverse Charge:</strong> VAT to be paid by the recipient.</p>' : ''}
+            
+            <div class="payment-info">
+                <h3>Payment Information</h3>
+                <p>${data.companyBankInfo.replace(/\n/g, '<br>')}</p>
+                <p>${paymentNote}</p>
+            </div>
+            
+            ${data.notes ? `<div class="notes"><h3>Notes</h3><p>${data.notes.replace(/\n/g, '<br>')}</p></div>` : ''}
+            
+            <div class="company-footer">
+                <p>${data.companyTagline}</p>
+                <p>Represented by: ${data.companyRepresentative}</p>
+            </div>
+        </div>
+    `;
 }
 
 // Function to save the current form state to localStorage
@@ -218,8 +241,6 @@ function saveFormState() {
 function loadFormState() {
     const savedData = localStorage.getItem('invoiceFormData');
     if (!savedData) {
-        // If no saved data, ensure we have just one empty line item row
-        ensureSingleEmptyLineItem();
         return;
     }
     
@@ -227,7 +248,71 @@ function loadFormState() {
         const formData = JSON.parse(savedData);
         
         // Populate form fields with saved data
-        populateFormFields(formData);
+        for (const key in formData) {
+            if (key === 'lineItems') continue; // Handle line items separately
+            
+            const element = document.getElementById(key);
+            if (element) {
+                if (element.type === 'checkbox') {
+                    element.checked = formData[key];
+                } else {
+                    element.value = formData[key];
+                }
+            }
+        }
+        
+        // Handle line items
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+        if (lineItemsContainer && Array.isArray(formData.lineItems)) {
+            // Clear existing line items
+            lineItemsContainer.innerHTML = '';
+            
+            // Add saved line items
+            formData.lineItems.forEach(item => {
+                const newItem = document.createElement('div');
+                newItem.className = 'line-item';
+                newItem.innerHTML = `
+                    <input type="text" placeholder="Description" class="item-description" value="${item.description || ''}">
+                    <input type="number" placeholder="Quantity" class="item-quantity" min="1" value="${item.quantity || 1}">
+                    <input type="number" placeholder="Price" class="item-price" min="0" step="0.01" value="${item.price || ''}">
+                    <input type="number" placeholder="VAT %" class="item-vat" min="0" value="${item.vat || 19}">
+                    <button type="button" class="remove-item">✕</button>
+                `;
+                
+                // Add event listeners to inputs for auto-save
+                const inputs = newItem.querySelectorAll('input');
+                inputs.forEach(input => {
+                    input.addEventListener('input', function() {
+                        saveFormState();
+                        updatePreview();
+                    });
+                    input.addEventListener('change', function() {
+                        saveFormState();
+                        updatePreview();
+                    });
+                });
+                
+                // Add event listener to remove button
+                const removeButton = newItem.querySelector('.remove-item');
+                if (removeButton) {
+                    removeButton.addEventListener('click', function() {
+                        newItem.remove();
+                        saveFormState();
+                        updatePreview();
+                    });
+                }
+                
+                lineItemsContainer.appendChild(newItem);
+            });
+            
+            // If no line items were added, add one empty line item
+            if (formData.lineItems.length === 0) {
+                addLineItem();
+            }
+        } else {
+            // If no line items container or no saved line items, add one empty line item
+            addLineItem();
+        }
         
         // Update the preview with the loaded data
         updatePreview();
@@ -235,7 +320,8 @@ function loadFormState() {
         console.log('Form state loaded');
     } catch (error) {
         console.error('Error loading saved form state:', error);
-        ensureSingleEmptyLineItem();
+        // Add one empty line item as fallback
+        addLineItem();
     }
 }
 
@@ -367,6 +453,7 @@ function collectFormData() {
         // Invoice details
         invoiceNumber: document.getElementById('invoiceNumber')?.value || '',
         invoiceDate: document.getElementById('invoiceDate')?.value || '',
+        dueDate: '', // Will be calculated based on payment terms
         
         // Company details
         companyName: document.getElementById('companyName')?.value || '',
@@ -376,6 +463,9 @@ function collectFormData() {
         companyTaxId: document.getElementById('companyTaxId')?.value || '',
         companyRegNumber: document.getElementById('companyRegNumber')?.value || '',
         companyBankInfo: document.getElementById('companyBankInfo')?.value || '',
+        companyRepresentative: document.getElementById('companyRepresentative')?.value || '',
+        companyTagline: document.getElementById('companyTagline')?.value || '',
+        paymentTerms: document.getElementById('paymentTerms')?.value || '',
         
         // Client details
         clientName: document.getElementById('clientName')?.value || '',
@@ -388,29 +478,48 @@ function collectFormData() {
         // Tax settings
         reverseCharge: document.getElementById('reverseCharge')?.checked || false,
         
+        // Notes
+        notes: document.getElementById('notes')?.value || '',
+        
         // Line items
         lineItems: []
     };
     
+    // Calculate due date if invoice date and payment terms are set
+    if (data.invoiceDate && data.paymentTerms) {
+        const dueDate = new Date(data.invoiceDate);
+        dueDate.setDate(dueDate.getDate() + parseInt(data.paymentTerms));
+        data.dueDate = dueDate.toISOString().split('T')[0];
+    }
+    
     // Collect line items
-    const lineItemsContainer = document.getElementById('lineItems');
+    const lineItemsContainer = document.getElementById('lineItemsContainer');
     if (lineItemsContainer) {
-        const lineItemRows = lineItemsContainer.children;
+        const lineItemRows = lineItemsContainer.querySelectorAll('.line-item');
         
-        for (let i = 0; i < lineItemRows.length; i++) {
-            const row = lineItemRows[i];
-            const inputs = row.querySelectorAll('input');
+        lineItemRows.forEach(row => {
+            const descInput = row.querySelector('.item-description');
+            const qtyInput = row.querySelector('.item-quantity');
+            const priceInput = row.querySelector('.item-price');
+            const vatInput = row.querySelector('.item-vat');
             
-            // Only add non-empty line items
-            if (inputs.length >= 3 && (inputs[0].value.trim() || inputs[1].value.trim() || inputs[2].value.trim())) {
-                data.lineItems.push({
-                    description: inputs[0].value || '',
-                    quantity: inputs[1].value || '',
-                    price: inputs[2].value || '',
-                    vat: inputs.length >= 4 ? (inputs[3].value || '19') : '19' // Default VAT rate if not specified
-                });
+            if (descInput && qtyInput && priceInput && vatInput) {
+                const description = descInput.value.trim();
+                const quantity = parseFloat(qtyInput.value) || 0;
+                const price = parseFloat(priceInput.value) || 0;
+                const vat = parseFloat(vatInput.value) || 0;
+                
+                // Only add non-empty line items
+                if (description || quantity > 0 || price > 0) {
+                    data.lineItems.push({
+                        description,
+                        quantity,
+                        price,
+                        vat
+                    });
+                }
             }
-        }
+        });
     }
     
     return data;
