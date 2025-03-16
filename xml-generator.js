@@ -2,125 +2,107 @@
  * Generates ZUGFeRD 2.3.2 Extended compliant XML from invoice data
  * @param {Object} data - The invoice data
  * @returns {string} - The generated XML content
+ * @throws {Error} - If a required field is missing or invalid
  */
 function generateZugferd(data) {
-    // Ensure data object has all required properties
-    data = {
-        invoiceNumber: '',
-        invoiceDate: '',
-        companyName: '',
-        companyAddress: '',
-        companyEmail: '',
-        companyPhone: '',
-        companyTaxId: '',
-        companyRegNumber: '',
-        companyBankInfo: '',
-        companyRepresentative: '',
-        clientName: '',
-        clientAddress: '',
-        deliveryDateStart: '',
-        deliveryDateEnd: '',
-        reverseCharge: false,
-        lineItems: [],
-        ...data // Overwrite defaults with actual data
-    };
-    
-    // Ensure lineItems is an array
-    if (!Array.isArray(data.lineItems)) {
-        data.lineItems = [];
+    // List of required fields
+    const requiredFields = [
+        'invoiceNumber',
+        'invoiceDate',
+        'companyName',
+        'companyAddress',
+        'companyTaxId',
+        'clientName',
+        'clientAddress',
+        'lineItems',
+    ];
+
+    // Check for missing required fields
+    const missingFields = requiredFields.filter((field) => !data[field]);
+    if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
-    
+
+    // Ensure lineItems is an array and has at least one item
+    if (!Array.isArray(data.lineItems) || data.lineItems.length === 0) {
+        throw new Error('lineItems must be a non-empty array');
+    }
+
     // Calculate totals
     let subtotal = 0;
     let totalVat = 0;
-    
-    data.lineItems.forEach(item => {
+
+    data.lineItems.forEach((item) => {
         const quantity = parseFloat(item.quantity) || 0;
         const price = parseFloat(item.price) || 0;
         const vat = parseFloat(item.vat) || 0;
-        
+
         const lineTotal = quantity * price;
-        const lineVat = data.reverseCharge ? 0 : (lineTotal * (vat / 100));
-        
+        const lineVat = data.reverseCharge ? 0 : lineTotal * (vat / 100);
+
         subtotal += lineTotal;
         totalVat += lineVat;
     });
-    
+
     const total = subtotal + totalVat;
-    
+
     // Format dates correctly for XML (YYYY-MM-DD)
     const formatXmlDate = (dateString) => {
         if (!dateString) return '';
-        
+
         // If already in YYYY-MM-DD format, return as is
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
             return dateString;
         }
-        
+
         // Try to parse and format the date
         try {
             const date = new Date(dateString);
             return date.toISOString().split('T')[0];
         } catch (e) {
-            return '';
+            throw new Error(`Invalid date format: ${dateString}`);
         }
     };
-    
-    const invoiceDate = formatXmlDate(data.invoiceDate) || formatXmlDate(new Date().toISOString());
+
+    const invoiceDate = formatXmlDate(data.invoiceDate);
     const deliveryStartDate = formatXmlDate(data.deliveryDateStart);
     const deliveryEndDate = formatXmlDate(data.deliveryDateEnd);
     const dueDate = formatXmlDate(data.dueDate);
-    
+
     // Extract postal code, city, and street from addresses
     const extractAddressParts = (address) => {
-        const lines = address.split('\n').map(line => line.trim()).filter(line => line);
-        let postalCode = '00000'; // Default value
-        let city = 'Unknown City'; // Default value
-        let street = 'Unknown Street'; // Default value
-        let country = 'DE'; // Default to Germany
-        
-        if (lines.length >= 1) street = lines[0] || street;
-        
-        // Try to extract postal code and city from the second line
-        if (lines.length >= 2) {
-            const match = lines[1].match(/(\d{5})\s+(.+)/);
-            if (match) {
-                postalCode = match[1];
-                city = match[2];
-            } else {
-                city = lines[1] || city;
-            }
+        const lines = address.split('\n').map((line) => line.trim()).filter((line) => line);
+        if (lines.length < 2) {
+            throw new Error('Address must include at least street and city');
         }
-        
-        // Check if there's a country in the last line
-        if (lines.length >= 3) {
-            if (lines[lines.length-1].trim().toLowerCase() !== 'germany') {
-                country = lines[lines.length-1].trim() || country;
-            }
+
+        const street = lines[0];
+        const match = lines[1].match(/(\d{5})\s+(.+)/);
+        if (!match) {
+            throw new Error('Address must include a valid postal code and city');
         }
-        
+
+        const postalCode = match[1];
+        const city = match[2];
+        const country = lines.length >= 3 ? lines[2] : 'DE';
+
         return { postalCode, city, street, country };
     };
-    
+
     const companyAddressParts = extractAddressParts(data.companyAddress);
     const clientAddressParts = extractAddressParts(data.clientAddress);
-    
+
     // Extract bank information
-    const bankInfo = data.companyBankInfo.split('\n').map(line => line.trim()).filter(line => line);
+    const bankInfo = data.companyBankInfo ? data.companyBankInfo.split('\n').map((line) => line.trim()).filter((line) => line) : [];
     const bankAccount = bankInfo.length > 0 ? bankInfo[0] : '';
     const bankBIC = bankInfo.length > 1 ? bankInfo[1] : '';
-    
-    // Ensure we have a valid invoice number (BR-02)
-    const invoiceNumber = data.invoiceNumber ? data.invoiceNumber.trim() : `INV-${Date.now()}`;
-    
-    // Ensure we have a valid buyer name (BR-07)
-    const buyerName = data.clientName ? data.clientName.trim() : "Unknown Buyer";
-    
+
     // Create XML structure for ZUGFeRD 2.3.2 Extended
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
                          xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
-                         xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+                         xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100"
+                         xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100">
     
     <!-- HEADER -->
     <rsm:ExchangedDocumentContext>
@@ -130,7 +112,7 @@ function generateZugferd(data) {
     </rsm:ExchangedDocumentContext>
     
     <rsm:ExchangedDocument>
-        <ram:ID>${invoiceNumber}</ram:ID>
+        <ram:ID>${data.invoiceNumber}</ram:ID>
         <ram:TypeCode>380</ram:TypeCode>
         <ram:IssueDateTime>
             <udt:DateTimeString format="102">${invoiceDate.replace(/-/g, '')}</udt:DateTimeString>
@@ -183,7 +165,7 @@ function generateZugferd(data) {
         <!-- SELLER INFORMATION -->
         <ram:ApplicableHeaderTradeAgreement>
             <ram:SellerTradeParty>
-                <ram:Name>${data.companyName || 'Seller Company'}</ram:Name>
+                <ram:Name>${data.companyName}</ram:Name>
                 <ram:PostalTradeAddress>
                     <ram:PostcodeCode>${companyAddressParts.postalCode}</ram:PostcodeCode>
                     <ram:LineOne>${companyAddressParts.street}</ram:LineOne>
@@ -191,13 +173,13 @@ function generateZugferd(data) {
                     <ram:CountryID>DE</ram:CountryID>
                 </ram:PostalTradeAddress>
                 <ram:SpecifiedTaxRegistration>
-                    <ram:ID schemeID="VA">${data.companyTaxId || 'DE000000000'}</ram:ID>
+                    <ram:ID schemeID="VA">${data.companyTaxId}</ram:ID>
                 </ram:SpecifiedTaxRegistration>
             </ram:SellerTradeParty>
             
             <!-- BUYER INFORMATION -->
             <ram:BuyerTradeParty>
-                <ram:Name>${buyerName}</ram:Name>
+                <ram:Name>${data.clientName}</ram:Name>
                 <ram:PostalTradeAddress>
                     <ram:PostcodeCode>${clientAddressParts.postalCode}</ram:PostcodeCode>
                     <ram:LineOne>${clientAddressParts.street}</ram:LineOne>
@@ -219,7 +201,7 @@ function generateZugferd(data) {
         
         <!-- PAYMENT INFORMATION -->
         <ram:ApplicableHeaderTradeSettlement>
-            <ram:PaymentReference>${invoiceNumber}</ram:PaymentReference>
+            <ram:PaymentReference>${data.invoiceNumber}</ram:PaymentReference>
             <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
             
             ${bankAccount ? `
@@ -250,7 +232,7 @@ function generateZugferd(data) {
         
             <!-- Required Referenced Document -->
             <ram:InvoiceReferencedDocument>
-                <ram:IssuerAssignedID>${invoiceNumber}</ram:IssuerAssignedID>
+                <ram:IssuerAssignedID>${data.invoiceNumber}</ram:IssuerAssignedID>
                 <ram:FormattedIssueDateTime>
                     <qdt:DateTimeString format="102">${invoiceDate.replace(/-/g, '')}</qdt:DateTimeString>
                 </ram:FormattedIssueDateTime>
@@ -258,7 +240,7 @@ function generateZugferd(data) {
         
             <!-- Required Trade Accounting Account -->
             <ram:ReceivableSpecifiedTradeAccountingAccount>
-                <ram:ID>${invoiceNumber}</ram:ID>
+                <ram:ID>${data.invoiceNumber}</ram:ID>
             </ram:ReceivableSpecifiedTradeAccountingAccount>
         
             <!-- TAX INFORMATION -->
@@ -310,5 +292,4 @@ function formatDate(dateString) {
 }
 
 // Export the functions
-// Export generateZugferd as generateXRechnung as well to match the import in xml.js
 export { generateZugferd, formatDate, generateZugferd as generateXRechnung };
