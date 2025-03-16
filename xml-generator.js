@@ -216,20 +216,6 @@ function generateZugferd(data) {
                 </ram:PayeeSpecifiedCreditorFinancialInstitution>` : ''}
             </ram:SpecifiedTradeSettlementPaymentMeans>` : ''}
             
-            <!-- PAYMENT TERMS (BT-20) -->
-            ${data.paymentTerms ? `
-            <ram:SpecifiedTradePaymentTerms>
-                <ram:Description>${data.paymentTerms} days</ram:Description>
-            </ram:SpecifiedTradePaymentTerms>` : ''}
-            
-            <!-- DUE DATE (BT-9) -->
-            ${dueDate ? `
-            <ram:SpecifiedTradePaymentTerms>
-                <ram:DueDateDateTime>
-                    <udt:DateTimeString format="102">${dueDate.replace(/-/g, '')}</udt:DateTimeString>
-                </ram:DueDateDateTime>
-            </ram:SpecifiedTradePaymentTerms>` : ''}
-
             <!-- Required Referenced Document -->
             <ram:InvoiceReferencedDocument>
                 <ram:IssuerAssignedID>${data.invoiceNumber}</ram:IssuerAssignedID>
@@ -237,12 +223,12 @@ function generateZugferd(data) {
                     <qdt:DateTimeString format="102">${invoiceDate.replace(/-/g, '')}</qdt:DateTimeString>
                 </ram:FormattedIssueDateTime>
             </ram:InvoiceReferencedDocument>
-
+        
             <!-- Required Trade Accounting Account -->
             <ram:ReceivableSpecifiedTradeAccountingAccount>
                 <ram:ID>${data.invoiceNumber}</ram:ID>
             </ram:ReceivableSpecifiedTradeAccountingAccount>
-
+        
             <!-- TOTALS -->
             <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
                 <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>
