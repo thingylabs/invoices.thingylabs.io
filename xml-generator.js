@@ -248,6 +248,15 @@ function generateZugferd(data) {
                 </ram:DueDateDateTime>
             </ram:SpecifiedTradePaymentTerms>` : ''}
             
+            <!-- TOTALS -->
+            <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>
+                <ram:TaxBasisTotalAmount>${subtotal.toFixed(2)}</ram:TaxBasisTotalAmount>
+                <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>
+                <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>
+                <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>
+            </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        
             <!-- TAX INFORMATION -->
             <ram:ApplicableTradeTax>
                 <ram:CalculatedAmount>${totalVat.toFixed(2)}</ram:CalculatedAmount>
@@ -257,15 +266,6 @@ function generateZugferd(data) {
                 <ram:RateApplicablePercent>${data.reverseCharge ? '0' : '19'}</ram:RateApplicablePercent>
                 ${data.reverseCharge ? '<ram:ExemptionReason>Reverse charge</ram:ExemptionReason>' : ''}
             </ram:ApplicableTradeTax>
-            
-            <!-- TOTALS -->
-            <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-                <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>
-                <ram:TaxBasisTotalAmount>${subtotal.toFixed(2)}</ram:TaxBasisTotalAmount>
-                <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>
-                <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>
-                <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>
-            </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
         </ram:ApplicableHeaderTradeSettlement>
     </rsm:SupplyChainTradeTransaction>
 </rsm:CrossIndustryInvoice>`;
