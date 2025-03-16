@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Thingylabs Invoice Generator</title>
+    <style>
+        :root {
+            --serif: 'Crimson Pro', Georgia, serif;
+            --accent: #2563eb;
+            --text: #1f2937;
+            --text-light: #666666;
+            --background: #ffffff;
+            --background-alt: #f8f9fa;
+            --border: #eee;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --accent: #60a5fa;
+                --text: #e5e7eb;
+                --text-light: #9ca3af;
+                --background: #111827;
+                --background-alt: #1f2937;
+                --border: #374151;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--serif);
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--background);
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        h1, h2, h3 {
+            font-weight: 300;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            grid-column: 1 / -1;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-section {
+            background: var(--background-alt);
+            padding: 2rem;
+            border-radius: 8px;
+        }
+
+        .preview-section {
+            background: var(--background-alt);
+            padding: 2rem;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 400;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--background);
+            color: var(--text);
+            font-family: var(--serif);
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--serif);
+            margin-right: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .line-items {
+            margin-bottom: 1.5rem;
+        }
+
+        .line-item {
+            display: grid;
+            grid-template-columns: 3fr 1fr 1fr 1fr auto;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+
+        .line-item button {
+            padding: 0.25rem 0.5rem;
+            margin: 0;
+        }
+
+        .add-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .invoice-preview {
+            background: white;
+            padding: 2rem;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            min-height: 500px;
+            color: black;
+        }
+
+        .action-buttons {
+            margin-top: 1.5rem;
+        }
+
+        .logo {
+            max-width: 200px;
+            margin-bottom: 1rem;
+        }
+
+        .invoice-number-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .invoice-number-container input {
+            flex: 1;
+        }
+
+        .invoice-number-container button {
+            padding: 0.75rem;
+            margin: 0;
+        }
+
+        .config-toggle {
+            background: none;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0;
+            margin-bottom: 1rem;
+            text-decoration: underline;
+        }
+
+        .config-section {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: none;
+        }
+
+        .config-section.visible {
+            display: block;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .invoice-preview, .invoice-preview * {
+                visibility: visible;
+            }
+            .invoice-preview {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Thingylabs Invoice Generator</h1>
+        
+        <div class="form-section">
+            <button type="button" class="config-toggle" id="configToggle">Show Company Configuration</button>
+            
+            <div class="config-section" id="configSection">
+                <h2>Company Configuration</h2>
+                
+                <div class="form-group">
+                    <label for="companyName">Company Name</label>
+                    <input type="text" id="companyName" value="Thingylabs GmbH">
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyEmail">Email</label>
+                    <input type="email" id="companyEmail" value="hallo@thingylabs.io">
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyPhone">Phone</label>
+                    <input type="text" id="companyPhone" value="0711 968 814 61">
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyAddress">Address</label>
+                    <textarea id="companyAddress" rows="3">Hasenbergsteige 6
+70178 Stuttgart
+Germany</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyTaxId">VAT Number</label>
+                    <input type="text" id="companyTaxId" value="DE344781208">
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyRegNumber">Registration Number</label>
+                    <input type="text" id="companyRegNumber" value="HRB 779845">
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyRepresentative">Represented By</label>
+                    <input type="text" id="companyRepresentative" value="Flora Han">
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyTagline">Tagline</label>
+                    <input type="text" id="companyTagline" value="Founded 2017 "We ♥ Open Source"">
+                </div>
+                
+                <div class="form-group">
+                    <label for="companyBankInfo">Bank Information</label>
+                    <textarea id="companyBankInfo" rows="3"></textarea>
+                </div>
+            </div>
+            
+            <h2>Invoice Details</h2>
+            
+            <div class="form-group">
+                <label for="invoiceNumber">Invoice Number</label>
+                <div class="invoice-number-container">
+                    <input type="text" id="invoiceNumber" placeholder="YYMMDD-001">
+                    <button type="button" id="generateInvoiceNumber">Generate</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="invoiceDate">Invoice Date</label>
+                <input type="date" id="invoiceDate">
+            </div>
+            
+            <div class="form-group">
+                <label for="deliveryDate">Delivery/Service Date</label>
+                <input type="date" id="deliveryDate">
+            </div>
+            
+            <h2>Client Information</h2>
+            
+            <div class="form-group">
+                <label for="clientName">Client Name/Company</label>
+                <input type="text" id="clientName" placeholder="Client Company GmbH">
+            </div>
+            
+            <div class="form-group">
+                <label for="clientAddress">Client Address</label>
+                <textarea id="clientAddress" rows="3" placeholder="Street, City, Postal Code"></textarea>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="reverseCharge">
+                <label for="reverseCharge">Reverse Charge (International Client)</label>
+            </div>
+            
+            <h2>Line Items</h2>
+            
+            <div class="line-items" id="lineItemsContainer">
+                <div class="line-item">
+                    <input type="text" placeholder="Description" class="item-description">
+                    <input type="number" placeholder="Quantity" class="item-quantity" min="1" value="1">
+                    <input type="number" placeholder="Price" class="item-price" min="0" step="0.01">
+                    <input type="number" placeholder="VAT %" class="item-vat" min="0" value="19">
+                    <button type="button" class="remove-item">✕</button>
+                </div>
+            </div>
+            
+            <button type="button" class="add-item" id="addLineItem">+ Add Item</button>
+            
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" rows="3" placeholder="Payment terms, additional information, etc."></textarea>
+            </div>
+        </div>
+        
+        <div class="preview-section">
+            <h2>Preview</h2>
+            <div class="invoice-preview" id="invoicePreview">
+                <!-- Preview will be generated here -->
+            </div>
+            
+            <div class="action-buttons">
+                <button type="button" id="generatePdf">Generate PDF</button>
+                <button type="button" id="generateXml">Generate XML</button>
+                <button type="button" id="printInvoice">Print</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load scripts with defer to improve page load performance -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <script>
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        function initApp() {
+            // Company configuration toggle
+            const configToggle = document.getElementById('configToggle');
+            const configSection = document.getElementById('configSection');
+            
+            configToggle.addEventListener('click', function() {
+                configSection.classList.toggle('visible');
+                configToggle.textContent = configSection.classList.contains('visible') 
+                    ? 'Hide Company Configuration' 
+                    : 'Show Company Configuration';
+            });
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('invoiceDate').value = today;
+            document.getElementById('deliveryDate').value = today;
+            
+            // Invoice number generation
+            const generateInvoiceNumber = document.getElementById('generateInvoiceNumber');
+            generateInvoiceNumber.addEventListener('click', function() {
+                const invoiceNumber = generateNewInvoiceNumber();
+                document.getElementById('invoiceNumber').value = invoiceNumber;
+                updatePreview();
+            });
+            
+            // Generate initial invoice number
+            if (!document.getElementById('invoiceNumber').value) {
+                document.getElementById('invoiceNumber').value = generateNewInvoiceNumber();
+            }
+            
+            // Add line item
+            document.getElementById('addLineItem').addEventListener('click', addLineItem);
+            
+            // Remove line item (for initial item)
+            document.querySelector('.remove-item').addEventListener('click', function() {
+                if (document.querySelectorAll('.line-item').length > 1) {
+                    this.closest('.line-item').remove();
+                    updatePreview();
+                }
+            });
+            
+            // Add event listeners for all form inputs
+            const allInputs = document.querySelectorAll('input, textarea');
+            allInputs.forEach(input => {
+                input.addEventListener('input', updatePreview);
+            });
+            
+            // Reverse charge checkbox
+            document.getElementById('reverseCharge').addEventListener('change', function() {
+                const vatInputs = document.querySelectorAll('.item-vat');
+                if (this.checked) {
+                    vatInputs.forEach(input => {
+                        input.value = '0';
+                        input.disabled = true;
+                    });
+                } else {
+                    vatInputs.forEach(input => {
+                        input.value = '19';
+                        input.disabled = false;
+                    });
+                }
+                updatePreview();
+            });
+            
+            // Print invoice
+            document.getElementById('printInvoice').addEventListener('click', function() {
+                window.print();
+            });
+            
+            // Generate PDF
+            document.getElementById('generatePdf').addEventListener('click', generatePdf);
+            
+            // Generate XML
+            document.getElementById('generateXml').addEventListener('click', generateXml);
+            
+            // Initial preview update
+            updatePreview();
+        }
+
+        // Function to add a new line item
+        function addLineItem() {
+            const lineItem = document.createElement('div');
+            lineItem.className = 'line-item';
+            
+            // Check if reverse charge is enabled
+            const reverseCharge = document.getElementById('reverseCharge').checked;
+            const vatValue = reverseCharge ? '0' : '19';
+            const vatDisabled = reverseCharge ? 'disabled' : '';
+            
+            lineItem.innerHTML = `
+                <input type="text" placeholder="Description" class="item-description">
+                <input type="number" placeholder="Quantity" class="item-quantity" min="1" value="1">
+                <input type="number" placeholder="Price" class="item-price" min="0" step="0.01">
+                <input type="number" placeholder="VAT %" class="item-vat" min="0" value="${vatValue}" ${vatDisabled}>
+                <button type="button" class="remove-item">✕</button>
+            `;
+            document.getElementById('lineItemsContainer').appendChild(lineItem);
+            
+            // Add event listener to the new remove button
+            lineItem.querySelector('.remove-item').addEventListener('click', function() {
+                lineItem.remove();
+                updatePreview();
+            });
+            
+            // Add event listeners for real-time preview updates
+            const inputs = lineItem.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('input', updatePreview);
+            });
+            
+            updatePreview();
+        }
+
+        // Function to generate a new invoice number
+        function generateNewInvoiceNumber() {
+            const now = new Date();
+            const year = now.getFullYear().toString().slice(-2);
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const datePrefix = `${year}${month}${day}`;
+            
+            // Get the last invoice number from localStorage
+            const lastInvoiceData = JSON.parse(localStorage.getItem('lastInvoiceData') || '{}');
+            let counter = 1;
+            
+            // If we have a previous invoice number from today, increment the counter
+            if (lastInvoiceData.date === datePrefix) {
+                counter = lastInvoiceData.counter + 1;
+            }
+            
+            // Save the new counter value
+            localStorage.setItem('lastInvoiceData', JSON.stringify({
+                date: datePrefix,
+                counter: counter
+            }));
+            
+            // Format the invoice number
+            return `${datePrefix}-${counter.toString().padStart(3, '0')}`;
+        }
+
+        // Function to update the preview
+        function updatePreview() {
+            const data = collectFormData();
+            const preview = document.getElementById('invoicePreview');
+            
+            // Calculate totals
+            let subtotal = 0;
+            let totalVat = 0;
+            
+            const lineItemsHtml = data.lineItems.map(item => {
+                const itemTotal = item.quantity * item.price;
+                const itemVat = itemTotal * (item.vat / 100);
+                
+                subtotal += itemTotal;
+                totalVat += itemVat;
+                
+                return `
+                    <tr>
+                        <td>${item.description}</td>
+                        <td>${item.quantity}</td>
+                        <td>€${item.price.toFixed(2)}</td>
+                        <td>${item.vat}%</td>
+                        <td>€${itemTotal.toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            const total = subtotal + totalVat;
+            
+            // Reverse charge note
+            const reverseChargeNote = data.reverseCharge 
+                ? '<p><strong>Note:</strong> VAT 0% - Reverse Charge. VAT liability transfers to the recipient of this invoice.</p>'
+                : '';
+            
+            preview.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2rem;">
+                    <div>
+                        <h2 style="margin-bottom: 0.5rem;">INVOICE</h2>
+                        <p><strong>Invoice #:</strong> ${data.invoiceNumber}</p>
+                        <p><strong>Date:</strong> ${formatDate(data.invoiceDate)}</p>
+                        <p><strong>Delivery Date:</strong> ${formatDate(data.deliveryDate)}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h3>${data.companyName}</h3>
+                        <p style="white-space: pre-line;">${data.companyAddress}</p>
+                        <p><strong>Email:</strong> ${data.companyEmail}</p>
+                        <p><strong>Phone:</strong> ${data.companyPhone}</p>
+                        <p><strong>VAT ID:</strong> ${data.companyTaxId}</p>
+                        <p><strong>Reg. No.:</strong> ${data.companyRegNumber}</p>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 2rem;">
+                    <h3>Bill To:</h3>
+                    <p>${data.clientName}</p>
+                    <p style="white-space: pre-line;">${data.clientAddress}</p>
+                </div>
+                
+                ${reverseChargeNote ? `<div style="margin-bottom: 2rem;">${reverseChargeNote}</div>` : ''}
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
+                    <thead>
+                        <tr style="background-color: #f3f4f6;">
+                            <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #e5e7eb;">Description</th>
+                            <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #e5e7eb;">Qty</th>
+                            <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #e5e7eb;">Price</th>
+                            <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #e5e7eb;">VAT</th>
+                            <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #e5e7eb;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lineItemsHtml}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="text-align: right; padding: 0.5rem;"><strong>Subtotal:</strong></td>
+                            <td style="padding: 0.5rem;">€${subtotal.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" style="text-align: right; padding: 0.5rem;"><strong>VAT:</strong></td>
+                            <td style="padding: 0.5rem;">€${totalVat.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" style="text-align: right; padding: 0.5rem;"><strong>Total:</strong></td>
+                            <td style="padding: 0.5rem;"><strong>€${total.toFixed(2)}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+                
+                ${data.companyBankInfo ? `
+                <div style="margin-bottom: 2rem;">
+                    <h3>Payment Information:</h3>
+                    <p style="white-space: pre-line;">${data.companyBankInfo}</p>
+                </div>
+                ` : ''}
+                
+                ${data.notes ? `
+                <div style="margin-bottom: 2rem;">
+                    <h3>Notes:</h3>
+                    <p style="white-space: pre-line;">${data.notes}</p>
+                </div>
+                ` : ''}
+                
+                <div style="margin-top: 3rem; text-align: center; color: #666;">
+                    <p>${data.companyName} | ${data.companyTagline}</p>
+                    <p>Represented by: ${data.companyRepresentative}</p>
+                </div>
+            `;
+        }
+
+        // Helper function to collect form data
+        function collectFormData() {
+            const lineItems = [];
+            document.querySelectorAll('.line-item').forEach(item => {
+                const description = item.querySelector('.item-description').value;
+                const quantity = parseFloat(item.querySelector('.item-quantity').value) || 0;
+                const price = parseFloat(item.querySelector('.item-price').value) || 0;
+                const vat = parseFloat(item.querySelector('.item-vat').value) || 0;
+                
+                lineItems.push({
+                    description,
+                    quantity,
+                    price,
+                    vat
+                });
+            });
+            
+            return {
+                // Company info
+                companyName: document.getElementById('companyName').value,
+                companyEmail: document.getElementById('companyEmail').value,
+                companyPhone: document.getElementById('companyPhone').value,
+                companyAddress: document.getElementById('companyAddress').value,
+                companyTaxId: document.getElementById('companyTaxId').value,
+                companyRegNumber: document.getElementById('companyRegNumber').value,
+                companyRepresentative: document.getElementById('companyRepresentative').value,
+                companyTagline: document.getElementById('companyTagline').value,
+                companyBankInfo: document.getElementById('companyBankInfo').value,
+                
+                // Invoice details
+                invoiceNumber: document.getElementById('invoiceNumber').value,
+                invoiceDate: document.getElementById('invoiceDate').value,
+                deliveryDate: document.getElementById('deliveryDate').value,
+                
+                // Client info
+                clientName: document.getElementById('clientName').value,
+                clientAddress: document.getElementById('clientAddress').value,
+                
+                // Reverse charge
+                reverseCharge: document.getElementById('reverseCharge').checked,
+                
+                // Other
+                notes: document.getElementById('notes').value,
+                lineItems
+            };
+        }
+
+        // Helper function to format dates
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        }
+
+        // Function to generate PDF
+        function generatePdf() {
+            // Check if jsPDF is loaded
+            if (typeof window.jspdf === 'undefined') {
+                alert('PDF library is still loading. Please try again in a moment.');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            
+            html2canvas(document.getElementById('invoicePreview')).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const width = pdf.internal.pageSize.getWidth();
+                const height = (canvas.height * width) / canvas.width;
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+                pdf.save(`Invoice-${document.getElementById('invoiceNumber').value || 'new'}.pdf`);
+            });
+        }
+
+        // Function to generate XML
+        function generateXml() {
+            const invoiceData = collectFormData();
+            const xmlContent = generateXRechnung(invoiceData);
+            
+            // Create a download link for the XML file
+            const blob = new Blob([xmlContent], { type: 'application/xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Invoice-${invoiceData.invoiceNumber || 'new'}.xml`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Function to generate XRechnung XML
+        function generateXRechnung(data) {
+            // Calculate totals
+            let subtotal = 0;
+            let totalVat = 0;
+            
+            data.lineItems.forEach(item => {
+                const itemTotal = item.quantity * item.price;
+                const itemVat = itemTotal * (item.vat / 100);
+                
+                subtotal += itemTotal;
+                totalVat += itemVat;
+            });
+            
+            const total = subtotal + totalVat;
+            
+            // Tax category code - S for standard rate, Z for zero rate (reverse charge)
+            const taxCategoryCode = data.reverseCharge ? 'Z' : 'S';
+            const taxTypeCode = data.reverseCharge ? 'AE' : 'VAT'; // AE = VAT Reverse Charge
+            
+            // Create XML structure for XRechnung
+            const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+             xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+             xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+    <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xoev-de:kosit:standard:xrechnung_2.0</cbc:CustomizationID>
+    <cbc:ID>${data.invoiceNumber}</cbc:ID>
+    <cbc:IssueDate>${data.invoiceDate}</cbc:IssueDate>
+    <cbc:DueDate>${data.invoiceDate}</cbc:DueDate>
+    <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+    <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+    <cbc:TaxCurrencyCode>EUR</cbc:TaxCurrencyCode>
+    ${data.reverseCharge ? '<cbc:TaxPointDate>' + data.invoiceDate + '</cbc:TaxPointDate>' : ''}
+    ${data.reverseCharge ? '<cbc:Note>Reverse charge: VAT liability transfers to the recipient of this invoice</cbc:Note>' : ''}
+    
+    <cac:AccountingSupplierParty>
+        <cac:Party>
+            <cac:PartyName>
+                <cbc:Name>${data.companyName}</cbc:Name>
+            </cac:PartyName>
+            <cac:PostalAddress>
+                <cbc:StreetName>${data.companyAddress}</cbc:StreetName>
+                <cbc:CityName></cbc:CityName>
+                <cbc:PostalZone></cbc:PostalZone>
+                <cac:Country>
+                    <cbc:IdentificationCode>DE</cbc:IdentificationCode>
+                </cac:Country>
+            </cac:PostalAddress>
+            <cac:Contact>
+                <cbc:ElectronicMail>${data.companyEmail}</cbc:ElectronicMail>
+                <cbc:Telephone>${data.companyPhone}</cbc:Telephone>
+            </cac:Contact>
+            <cac:PartyTaxScheme>
+                <cbc:CompanyID>${data.companyTaxId}</cbc:CompanyID>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:PartyTaxScheme>
+            <cac:PartyLegalEntity>
+                <cbc:RegistrationName>${data.companyName}</cbc:RegistrationName>
+                <cbc:CompanyID>${data.companyRegNumber}</cbc:CompanyID>
+            </cac:PartyLegalEntity>
+        </cac:Party>
+    </cac:AccountingSupplierParty>
+    
+    <cac:AccountingCustomerParty>
+        <cac:Party>
+            <cac:PartyName>
+                <cbc:Name>${data.clientName}</cbc:Name>
+            </cac:PartyName>
+            <cac:PostalAddress>
+                <cbc:StreetName>${data.clientAddress}</cbc:StreetName>
+                <cbc:CityName></cbc:CityName>
+                <cbc:PostalZone></cbc:PostalZone>
+                <cac:Country>
+                    <cbc:IdentificationCode>${data.reverseCharge ? 'XX' : 'DE'}</cbc:IdentificationCode>
+                </cac:Country>
+            </cac:PostalAddress>
+            <cac:PartyLegalEntity>
+                <cbc:RegistrationName>${data.clientName}</cbc:RegistrationName>
+            </cac:PartyLegalEntity>
+        </cac:Party>
+    </cac:AccountingCustomerParty>
+    
+    <cac:PaymentMeans>
+        <cbc:PaymentMeansCode>58</cbc:PaymentMeansCode>
+        <cbc:PaymentID>${data.invoiceNumber}</cbc:PaymentID>
+        <cac:PayeeFinancialAccount>
+            <cbc:ID>${data.companyBankInfo}</cbc:ID>
+        </cac:PayeeFinancialAccount>
+    </cac:PaymentMeans>
+    
+    <cac:TaxTotal>
+        <cbc:TaxAmount currencyID="EUR">${totalVat.toFixed(2)}</cbc:TaxAmount>
+        <cac:TaxSubtotal>
+            <cbc:TaxableAmount currencyID="EUR">${subtotal.toFixed(2)}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="EUR">${totalVat.toFixed(2)}</cbc:TaxAmount>
+            <cac:TaxCategory>
+                <cbc:ID>${taxCategoryCode}</cbc:ID>
+                <cbc:Percent>${data.reverseCharge ? '0' : '19'}</cbc:Percent>
+                ${data.reverseCharge ? '<cbc:TaxExemptionReason>Reverse charge</cbc:TaxExemptionReason>' : ''}
+                <cac:TaxScheme>
+                    <cbc:ID>${taxTypeCode}</cbc:ID>
+                </cac:TaxScheme>
+            </cac:TaxCategory>
+        </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    
+    <cac:LegalMonetaryTotal>
+        <cbc:LineExtensionAmount currencyID="EUR">${subtotal.toFixed(2)}</cbc:LineExtensionAmount>
+        <cbc:TaxExclusiveAmount currencyID="EUR">${subtotal.toFixed(2)}</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="EUR">${total.toFixed(2)}</cbc:TaxInclusiveAmount>
+        <cbc:PayableAmount currencyID="EUR">${total.toFixed(2)}</cbc:PayableAmount>
+    </cac:LegalMonetaryTotal>
+    
+    ${data.lineItems.map((item, index) => {
+        const lineTotal = item.quantity * item.price;
+        return `
+    <cac:InvoiceLine>
+        <cbc:ID>${index + 1}</cbc:ID>
+        <cbc:InvoicedQuantity unitCode="EA">${item.quantity}</cbc:InvoicedQuantity>
+        <cbc:LineExtensionAmount currencyID="EUR">${lineTotal.toFixed(2)}</cbc:LineExtensionAmount>
+        <cac:Item>
+            <cbc:Name>${item.description}</cbc:Name>
+            <cac:ClassifiedTaxCategory>
+                <cbc:ID>${taxCategoryCode}</cbc:ID>
+                <cbc:Percent>${item.vat}</cbc:Percent>
+                ${data.reverseCharge ? '<cbc:TaxExemptionReason>Reverse charge</cbc:TaxExemptionReason>' : ''}
+                <cac:TaxScheme>
+                    <cbc:ID>${taxTypeCode}</cbc:ID>
+                </cac:TaxScheme>
+            </cac:ClassifiedTaxCategory>
+        </cac:Item>
+        <cac:Price>
+            <cbc:PriceAmount currencyID="EUR">${item.price.toFixed(2)}</cbc:PriceAmount>
+        </cac:Price>
+    </cac:InvoiceLine>`;
+    }).join('')}
+</ubl:Invoice>`;
+            
+            return xml;
+        }
+    </script>
+</body>
+</html>
