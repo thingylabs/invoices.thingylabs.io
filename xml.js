@@ -1,6 +1,13 @@
+// XML generation functionality
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Generate XML
+    document.getElementById('generateXml').addEventListener('click', generateXml);
+});
+
 // Function to generate XML
 function generateXml() {
-    const invoiceData = window.collectFormData();
+    const invoiceData = collectFormData();
     const xmlContent = generateXRechnung(invoiceData);
     
     // Create a download link for the XML file
@@ -164,6 +171,3 @@ function generateXRechnung(data) {
     
     return xml;
 }
-
-// Make the function available globally
-window.generateXml = generateXml;
