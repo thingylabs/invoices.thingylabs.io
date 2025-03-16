@@ -4,12 +4,82 @@ document.addEventListener('DOMContentLoaded', function() {
     // Generate XML
     document.getElementById('generateXml').addEventListener('click', generateXml);
     
+    // Add event listeners for PDF and print buttons
+    const generatePdfButton = document.getElementById('generatePdf');
+    if (generatePdfButton) {
+        generatePdfButton.addEventListener('click', generatePdf);
+    }
+    
+    const printInvoiceButton = document.getElementById('printInvoice');
+    if (printInvoiceButton) {
+        printInvoiceButton.addEventListener('click', printInvoice);
+    }
+    
+    // Set up add line item button
+    const addLineItemButton = document.getElementById('addLineItem');
+    if (addLineItemButton) {
+        addLineItemButton.addEventListener('click', function() {
+            addLineItem();
+            setTimeout(function() {
+                saveFormState();
+                updatePreview();
+            }, 100);
+        });
+    }
+    
     // Load saved form data when page loads
     loadFormState();
     
     // Set up auto-save on form changes
     setupAutoSave();
+    
+    // Initial preview update
+    updatePreview();
 });
+
+// Function to add a new line item
+function addLineItem() {
+    const lineItemsContainer = document.getElementById('lineItems');
+    if (!lineItemsContainer) return;
+    
+    // Get the template row (first row)
+    const templateRow = lineItemsContainer.children[0];
+    if (!templateRow) return;
+    
+    // Clone the template
+    const newRow = templateRow.cloneNode(true);
+    
+    // Clear input values in the new row
+    const inputs = newRow.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.value = '';
+    });
+    
+    // Add event listener to the remove button
+    const removeButton = newRow.querySelector('.removeLineItem');
+    if (removeButton) {
+        removeButton.addEventListener('click', function() {
+            newRow.remove();
+            saveFormState();
+            updatePreview();
+        });
+    }
+    
+    // Add input event listeners for auto-save
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            saveFormState();
+            updatePreview();
+        });
+        input.addEventListener('change', function() {
+            saveFormState();
+            updatePreview();
+        });
+    });
+    
+    // Add the new row to the container
+    lineItemsContainer.appendChild(newRow);
+}
 
 // Function to set up auto-save for all form inputs
 function setupAutoSave() {
@@ -18,26 +88,123 @@ function setupAutoSave() {
     
     // Add change event listener to each input
     formInputs.forEach(input => {
-        input.addEventListener('change', saveFormState);
-        input.addEventListener('input', saveFormState);
-    });
-    
-    // Also save when line items are added or removed
-    const addLineItemButton = document.getElementById('addLineItem');
-    if (addLineItemButton) {
-        addLineItemButton.addEventListener('click', function() {
-            // Wait a moment for the DOM to update
-            setTimeout(saveFormState, 100);
+        input.addEventListener('change', function() {
+            saveFormState();
+            updatePreview();
         });
-    }
+        
+        input.addEventListener('input', function() {
+            saveFormState();
+            updatePreview();
+        });
+    });
     
     // Set up a listener for remove line item buttons
     document.addEventListener('click', function(e) {
         if (e.target && e.target.classList.contains('removeLineItem')) {
             // Wait a moment for the DOM to update
-            setTimeout(saveFormState, 100);
+            setTimeout(function() {
+                saveFormState();
+                updatePreview();
+            }, 100);
         }
     });
+}
+
+// Function to update the preview
+function updatePreview() {
+    const data = collectFormData();
+    
+    // Update invoice number and date in preview
+    document.getElementById('previewInvoiceNumber').textContent = data.invoiceNumber || '';
+    document.getElementById('previewInvoiceDate').textContent = data.invoiceDate || '';
+    
+    // Update company details in preview
+    document.getElementById('previewCompanyName').textContent = data.companyName || '';
+    document.getElementById('previewCompanyAddress').textContent = data.companyAddress || '';
+    document.getElementById('previewCompanyContact').textContent = 
+        `${data.companyEmail ? 'Email: ' + data.companyEmail : ''}
+         ${data.companyPhone ? 'Phone: ' + data.companyPhone : ''}`.trim();
+    document.getElementById('previewCompanyTaxInfo').textContent = 
+        `${data.companyTaxId ? 'Tax ID: ' + data.companyTaxId : ''}
+         ${data.companyRegNumber ? 'Reg #: ' + data.companyRegNumber : ''}`.trim();
+    
+    // Update client details in preview
+    document.getElementById('previewClientName').textContent = data.clientName || '';
+    document.getElementById('previewClientAddress').textContent = data.clientAddress || '';
+    
+    // Update delivery dates in preview
+    const deliveryPeriod = [];
+    if (data.deliveryDateStart) deliveryPeriod.push('From: ' + data.deliveryDateStart);
+    if (data.deliveryDateEnd) deliveryPeriod.push('To: ' + data.deliveryDateEnd);
+    document.getElementById('previewDeliveryPeriod').textContent = deliveryPeriod.join(' ');
+    
+    // Update line items in preview
+    const lineItemsTable = document.getElementById('previewLineItems');
+    if (!lineItemsTable) return;
+    
+    // Clear existing rows except header
+    while (lineItemsTable.rows.length > 1) {
+        lineItemsTable.deleteRow(1);
+    }
+    
+    // Calculate totals
+    let subtotal = 0;
+    let totalVat = 0;
+    
+    // Add line items to preview table
+    data.lineItems.forEach(item => {
+        const quantity = parseFloat(item.quantity) || 0;
+        const price = parseFloat(item.price) || 0;
+        const vat = parseFloat(item.vat) || 0;
+        
+        const lineTotal = quantity * price;
+        const lineVat = lineTotal * (vat / 100);
+        
+        subtotal += lineTotal;
+        totalVat += lineVat;
+        
+        const row = lineItemsTable.insertRow();
+        
+        // Description
+        const cellDesc = row.insertCell();
+        cellDesc.textContent = item.description;
+        
+        // Quantity
+        const cellQty = row.insertCell();
+        cellQty.textContent = quantity;
+        cellQty.className = 'text-right';
+        
+        // Price
+        const cellPrice = row.insertCell();
+        cellPrice.textContent = price.toFixed(2) + ' €';
+        cellPrice.className = 'text-right';
+        
+        // VAT
+        const cellVat = row.insertCell();
+        cellVat.textContent = vat + '%';
+        cellVat.className = 'text-right';
+        
+        // Line total
+        const cellTotal = row.insertCell();
+        cellTotal.textContent = lineTotal.toFixed(2) + ' €';
+        cellTotal.className = 'text-right';
+    });
+    
+    // Update totals in preview
+    const total = subtotal + totalVat;
+    document.getElementById('previewSubtotal').textContent = subtotal.toFixed(2) + ' €';
+    document.getElementById('previewVat').textContent = totalVat.toFixed(2) + ' €';
+    document.getElementById('previewTotal').textContent = total.toFixed(2) + ' €';
+    
+    // Update bank info in preview
+    document.getElementById('previewBankInfo').textContent = data.companyBankInfo || '';
+    
+    // Update reverse charge notice if applicable
+    const reverseChargeNotice = document.getElementById('reverseChargeNotice');
+    if (reverseChargeNotice) {
+        reverseChargeNotice.style.display = data.reverseCharge ? 'block' : 'none';
+    }
 }
 
 // Function to save the current form state to localStorage
@@ -50,7 +217,11 @@ function saveFormState() {
 // Function to load the saved form state from localStorage
 function loadFormState() {
     const savedData = localStorage.getItem('invoiceFormData');
-    if (!savedData) return;
+    if (!savedData) {
+        // If no saved data, ensure we have just one empty line item row
+        ensureSingleEmptyLineItem();
+        return;
+    }
     
     try {
         const formData = JSON.parse(savedData);
@@ -58,9 +229,33 @@ function loadFormState() {
         // Populate form fields with saved data
         populateFormFields(formData);
         
+        // Update the preview with the loaded data
+        updatePreview();
+        
         console.log('Form state loaded');
     } catch (error) {
         console.error('Error loading saved form state:', error);
+        ensureSingleEmptyLineItem();
+    }
+}
+
+// Function to ensure there's exactly one empty line item row
+function ensureSingleEmptyLineItem() {
+    const lineItemsContainer = document.getElementById('lineItems');
+    if (!lineItemsContainer) return;
+    
+    // Keep only the first row
+    while (lineItemsContainer.children.length > 1) {
+        lineItemsContainer.removeChild(lineItemsContainer.lastChild);
+    }
+    
+    // Clear the first row's inputs
+    if (lineItemsContainer.children.length > 0) {
+        const firstRow = lineItemsContainer.children[0];
+        const inputs = firstRow.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.value = '';
+        });
     }
 }
 
@@ -81,42 +276,48 @@ function populateFormFields(data) {
     }
     
     // Handle line items
+    const lineItemsContainer = document.getElementById('lineItems');
+    if (!lineItemsContainer) return;
+    
+    // Clear all existing line items
+    while (lineItemsContainer.children.length > 0) {
+        lineItemsContainer.removeChild(lineItemsContainer.lastChild);
+    }
+    
+    // If we have saved line items, add them
     if (Array.isArray(data.lineItems) && data.lineItems.length > 0) {
-        // Clear any existing line items first (except the first template row)
-        const lineItemsContainer = document.getElementById('lineItems');
-        while (lineItemsContainer.children.length > 1) {
-            lineItemsContainer.removeChild(lineItemsContainer.lastChild);
+        // Get the template row from the DOM or create one if needed
+        let templateRow;
+        if (lineItemsContainer.children.length > 0) {
+            templateRow = lineItemsContainer.children[0];
+        } else {
+            // If no template exists, we need to create one
+            // This is a fallback and might need adjustment based on your HTML structure
+            templateRow = document.createElement('div');
+            templateRow.className = 'line-item row mb-2';
+            templateRow.innerHTML = `
+                <div class="col-5">
+                    <input type="text" class="form-control" placeholder="Description">
+                </div>
+                <div class="col-2">
+                    <input type="number" class="form-control" placeholder="Qty">
+                </div>
+                <div class="col-2">
+                    <input type="number" class="form-control" placeholder="Price">
+                </div>
+                <div class="col-2">
+                    <input type="number" class="form-control" placeholder="VAT %">
+                </div>
+                <div class="col-1">
+                    <button type="button" class="btn btn-danger removeLineItem">×</button>
+                </div>
+            `;
         }
         
-        // Get the template row
-        const templateRow = lineItemsContainer.children[0];
-        
-        // Clear the template row inputs
-        const templateInputs = templateRow.querySelectorAll('input');
-        templateInputs.forEach(input => {
-            input.value = '';
-        });
-        
-        // Add saved line items
-        data.lineItems.forEach((item, index) => {
-            let row;
-            if (index === 0) {
-                // Use the first row that already exists
-                row = templateRow;
-            } else {
-                // Clone the template for additional rows
-                row = templateRow.cloneNode(true);
-                lineItemsContainer.appendChild(row);
-                
-                // Add event listener to the remove button
-                const removeButton = row.querySelector('.removeLineItem');
-                if (removeButton) {
-                    removeButton.addEventListener('click', function() {
-                        row.remove();
-                        saveFormState();
-                    });
-                }
-            }
+        // Add each line item
+        data.lineItems.forEach(item => {
+            // Clone the template
+            const row = templateRow.cloneNode(true);
             
             // Fill in the values
             const inputs = row.querySelectorAll('input');
@@ -128,7 +329,35 @@ function populateFormFields(data) {
                     inputs[3].value = item.vat || '';
                 }
             }
+            
+            // Add event listener to the remove button
+            const removeButton = row.querySelector('.removeLineItem');
+            if (removeButton) {
+                removeButton.addEventListener('click', function() {
+                    row.remove();
+                    saveFormState();
+                    updatePreview();
+                });
+            }
+            
+            // Add input event listeners
+            inputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    saveFormState();
+                    updatePreview();
+                });
+                input.addEventListener('change', function() {
+                    saveFormState();
+                    updatePreview();
+                });
+            });
+            
+            // Add the row to the container
+            lineItemsContainer.appendChild(row);
         });
+    } else {
+        // If no saved line items, add one empty row
+        ensureSingleEmptyLineItem();
     }
 }
 
@@ -178,13 +407,43 @@ function collectFormData() {
                     description: inputs[0].value || '',
                     quantity: inputs[1].value || '',
                     price: inputs[2].value || '',
-                    vat: inputs.length >= 4 ? (inputs[3].value || '') : '19' // Default VAT rate if not specified
+                    vat: inputs.length >= 4 ? (inputs[3].value || '19') : '19' // Default VAT rate if not specified
                 });
             }
         }
     }
     
     return data;
+}
+
+// Function to generate PDF
+function generatePdf() {
+    // Make sure the preview is up to date
+    updatePreview();
+    
+    // Get the invoice preview element
+    const element = document.getElementById('invoicePreview');
+    
+    // Configure html2pdf options
+    const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `Invoice-${document.getElementById('invoiceNumber').value || 'new'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    
+    // Generate PDF
+    html2pdf().set(opt).from(element).save();
+}
+
+// Function to print the invoice
+function printInvoice() {
+    // Make sure the preview is up to date
+    updatePreview();
+    
+    // Print the invoice preview
+    window.print();
 }
 
 // Function to generate XML
@@ -279,15 +538,23 @@ function generateXRechnung(data) {
     const taxCategoryCode = data.reverseCharge ? 'Z' : 'S';
     const taxTypeCode = data.reverseCharge ? 'AE' : 'VAT'; // AE = VAT Reverse Charge
     
-    // Create XML structure for ZUGFeRD (CrossIndustryInvoice format)
+    // Format the current date for document creation
+    const now = new Date();
+    const formattedNow = now.toISOString().split('T')[0].replace(/-/g, '');
+    
+    // Create XML structure for ZUGFeRD 2.3.2 (CrossIndustryInvoice format)
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
                          xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
-                         xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+                         xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100"
+                         xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100">
     <rsm:ExchangedDocumentContext>
         <ram:GuidelineSpecifiedDocumentContextParameter>
-            <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:extended</ram:ID>
+            <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:zugferd.de:2p3p2:extended</ram:ID>
         </ram:GuidelineSpecifiedDocumentContextParameter>
+        <ram:BusinessProcessSpecifiedDocumentContextParameter>
+            <ram:ID>urn:zugferd.de:2p3p2:comfort</ram:ID>
+        </ram:BusinessProcessSpecifiedDocumentContextParameter>
     </rsm:ExchangedDocumentContext>
     
     <rsm:ExchangedDocument>
@@ -296,7 +563,8 @@ function generateXRechnung(data) {
         <ram:IssueDateTime>
             <udt:DateTimeString format="102">${formatDate(data.invoiceDate)}</udt:DateTimeString>
         </ram:IssueDateTime>
-        ${data.reverseCharge ? '<ram:IncludedNote><ram:Content>Reverse charge: VAT liability transfers to the recipient of this invoice</ram:Content></ram:IncludedNote>' : ''}
+        ${data.reverseCharge ? '<ram:IncludedNote><ram:Content>Reverse charge: VAT liability transfers to the recipient of this invoice</ram:Content><ram:SubjectCode>AAI</ram:SubjectCode></ram:IncludedNote>' : ''}
+        <ram:LanguageID>de</ram:LanguageID>
     </rsm:ExchangedDocument>
     
     <rsm:SupplyChainTradeTransaction>
@@ -316,6 +584,7 @@ function generateXRechnung(data) {
             <ram:SpecifiedLineTradeAgreement>
                 <ram:NetPriceProductTradePrice>
                     <ram:ChargeAmount>${price.toFixed(2)}</ram:ChargeAmount>
+                    <ram:BasisQuantity unitCode="C62">1</ram:BasisQuantity>
                 </ram:NetPriceProductTradePrice>
             </ram:SpecifiedLineTradeAgreement>
             <ram:SpecifiedLineTradeDelivery>
@@ -336,10 +605,14 @@ function generateXRechnung(data) {
         
         <!-- Header level information -->
         <ram:ApplicableHeaderTradeAgreement>
+            <ram:BuyerReference>${data.invoiceNumber}</ram:BuyerReference>
             <ram:SellerTradeParty>
+                <ram:ID>${data.companyRegNumber}</ram:ID>
                 <ram:Name>${data.companyName}</ram:Name>
                 <ram:PostalTradeAddress>
+                    <ram:PostcodeCode></ram:PostcodeCode>
                     <ram:LineOne>${data.companyAddress}</ram:LineOne>
+                    <ram:CityName></ram:CityName>
                     <ram:CountryID>DE</ram:CountryID>
                 </ram:PostalTradeAddress>
                 <ram:SpecifiedTaxRegistration>
@@ -361,7 +634,9 @@ function generateXRechnung(data) {
             <ram:BuyerTradeParty>
                 <ram:Name>${data.clientName}</ram:Name>
                 <ram:PostalTradeAddress>
+                    <ram:PostcodeCode></ram:PostcodeCode>
                     <ram:LineOne>${data.clientAddress}</ram:LineOne>
+                    <ram:CityName></ram:CityName>
                     <ram:CountryID>${data.reverseCharge ? 'XX' : 'DE'}</ram:CountryID>
                 </ram:PostalTradeAddress>
             </ram:BuyerTradeParty>
@@ -381,6 +656,7 @@ function generateXRechnung(data) {
             
             <ram:SpecifiedTradeSettlementPaymentMeans>
                 <ram:TypeCode>58</ram:TypeCode>
+                <ram:Information>Überweisung</ram:Information>
                 <ram:PayeePartyCreditorFinancialAccount>
                     <ram:IBANID>${data.companyBankInfo}</ram:IBANID>
                 </ram:PayeePartyCreditorFinancialAccount>
