@@ -611,6 +611,7 @@ function generateXRechnung(data) {
         companyTaxId: '',
         companyRegNumber: '',
         companyBankInfo: '',
+        companyRepresentative: '',
         clientName: '',
         clientAddress: '',
         deliveryDateStart: '',
@@ -635,7 +636,7 @@ function generateXRechnung(data) {
         const vat = parseFloat(item.vat) || 0;
         
         const lineTotal = quantity * price;
-        const lineVat = lineTotal * (vat / 100);
+        const lineVat = data.reverseCharge ? 0 : (lineTotal * (vat / 100));
         
         subtotal += lineTotal;
         totalVat += lineVat;
@@ -694,6 +695,15 @@ function generateXRechnung(data) {
     
     const companyAddressParts = extractAddressParts(data.companyAddress);
     const clientAddressParts = extractAddressParts(data.clientAddress);
+    
+    // Extract bank information
+    const bankInfo = data.companyBankInfo.split('\n').map(line => line.trim()).filter(line => line);
+    const bankAccount = bankInfo.length > 0 ? bankInfo[0] : '';
+    
+    // Split representative name into first and last name
+    const nameParts = data.companyRepresentative.split(' ');
+    const firstName = nameParts.length > 0 ? nameParts[0] : '';
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
     
     // Create XML structure for XRechnung 3.0.2
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -790,11 +800,10 @@ function generateXRechnung(data) {
                 <cbc:CompanyID>${data.companyRegNumber}</cbc:CompanyID>
             </cac:PartyLegalEntity>
             
-            <!-- Add FinancialAccount to fix the structure error -->
-            <cac:FinancialAccount>
-                <cbc:ID>${data.companyBankInfo.split('\n')[0]}</cbc:ID>
-                <cbc:Name>${data.companyName} Account</cbc:Name>
-            </cac:FinancialAccount>
+            <cac:Person>
+                <cbc:FirstName>${firstName}</cbc:FirstName>
+                <cbc:FamilyName>${lastName}</cbc:FamilyName>
+            </cac:Person>
         </cac:Party>
     </cac:AccountingSupplierParty>
     
@@ -838,7 +847,8 @@ function generateXRechnung(data) {
         <cbc:PaymentMeansCode>58</cbc:PaymentMeansCode>
         <cbc:PaymentID>${data.invoiceNumber}</cbc:PaymentID>
         <cac:PayeeFinancialAccount>
-            <cbc:ID>${data.companyBankInfo.split('\n')[0]}</cbc:ID>
+            <cbc:ID>${bankAccount}</cbc:ID>
+            <cbc:Name>${data.companyName} Account</cbc:Name>
         </cac:PayeeFinancialAccount>
     </cac:PaymentMeans>
     
