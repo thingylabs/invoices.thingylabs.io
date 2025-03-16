@@ -777,7 +777,7 @@ function generateXRechnung(data) {
                 <cbc:ElectronicMail>${data.companyEmail}</cbc:ElectronicMail>
             </cac:Contact>
             
-            <!-- BG-4 Seller -->
+            <!-- BG-4 Seller tax information -->
             <cac:PartyTaxScheme>
                 <cbc:CompanyID>${data.companyTaxId}</cbc:CompanyID>
                 <cac:TaxScheme>
@@ -789,6 +789,12 @@ function generateXRechnung(data) {
                 <cbc:RegistrationName>${data.companyName}</cbc:RegistrationName>
                 <cbc:CompanyID>${data.companyRegNumber}</cbc:CompanyID>
             </cac:PartyLegalEntity>
+            
+            <!-- Add FinancialAccount to fix the structure error -->
+            <cac:FinancialAccount>
+                <cbc:ID>${data.companyBankInfo.split('\n')[0]}</cbc:ID>
+                <cbc:Name>${data.companyName} Account</cbc:Name>
+            </cac:FinancialAccount>
         </cac:Party>
     </cac:AccountingSupplierParty>
     
