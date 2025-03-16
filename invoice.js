@@ -490,5 +490,36 @@ function deleteClient() {
 
 // Function to print the invoice
 function printInvoice() {
+    // Create a temporary print-specific style
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .invoice-preview, .invoice-preview * {
+                visibility: visible;
+            }
+            .invoice-preview {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                box-shadow: none;
+                padding: 20px;
+            }
+            .container, .preview-section {
+                padding: 0;
+                margin: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Print the document
     window.print();
+    
+    // Remove the temporary style
+    document.head.removeChild(style);
 }
+
