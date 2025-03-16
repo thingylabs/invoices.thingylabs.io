@@ -9,6 +9,9 @@
     --border: #eee;
     --switcher-bg: #f3f4f6;
     --switcher-text: #1f2937;
+    --success-color: #10b981;
+    --primary-color: #2563eb;
+    --primary-color-dark: #1d4ed8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +24,9 @@
         --border: #374151;
         --switcher-bg: #1f2937;
         --switcher-text: #e5e7eb;
+        --success-color: #34d399;
+        --primary-color: #60a5fa;
+        --primary-color-dark: #3b82f6;
     }
 }
 
@@ -33,6 +39,9 @@
     --border: #374151;
     --switcher-bg: #1f2937;
     --switcher-text: #e5e7eb;
+    --success-color: #34d399;
+    --primary-color: #60a5fa;
+    --primary-color-dark: #3b82f6;
 }
 
 * {
@@ -276,6 +285,29 @@ button:hover {
     display: block;
 }
 
+.config-actions {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.config-actions button {
+    padding: 8px 16px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.config-actions button:hover {
+    background-color: var(--primary-color-dark);
+}
+
+.config-actions button.success {
+    background-color: var(--success-color);
+}
+
 .checkbox-group {
     display: flex;
     align-items: center;
@@ -316,6 +348,52 @@ button:hover {
 
 .client-select-container select {
     flex: 1;
+}
+
+/* Invoice Preview Styles */
+.invoice-preview .payment-info {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.invoice-preview .invoice-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.invoice-preview .client-section {
+    margin-bottom: 2rem;
+}
+
+.invoice-preview .invoice-items {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2rem;
+}
+
+.invoice-preview .invoice-items th,
+.invoice-preview .invoice-items td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.invoice-preview .invoice-items tfoot td {
+    border-bottom: none;
+}
+
+.invoice-preview .invoice-items .text-right {
+    text-align: right;
+}
+
+.invoice-preview .invoice-items .total-row {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.invoice-preview .invoice-footer {
+    margin-top: 2rem;
 }
 
 /* Footer */
@@ -405,7 +483,7 @@ footer {
 }
 
 .copy-btn.success {
-    background: #10b981;
+    background: var(--success-color);
 }
 
 .copy-group {
@@ -435,7 +513,7 @@ footer {
 }
 
 .copy-group-btn.success {
-    background: #10b981;
+    background: var(--success-color);
 }
 
 @media (max-width: 768px) {
@@ -458,17 +536,24 @@ footer {
 
 /* Print styles */
 @media print {
-    body * {
-        visibility: hidden;
+    nav, footer, .form-section, .action-buttons {
+        display: none;
     }
-    .invoice-preview, .invoice-preview * {
-        visibility: visible;
-    }
-    .invoice-preview {
-        position: absolute;
-        left: 0;
-        top: 0;
+    
+    .container {
         width: 100%;
+        max-width: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .preview-section {
+        width: 100%;
+    }
+    
+    .invoice-preview {
+        padding: 20px;
+        border: none;
         box-shadow: none;
     }
 }
