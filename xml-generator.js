@@ -1,5 +1,5 @@
 /**
- * Generates ZUGFeRD 2.1/2.3.2 Extended compliant XML from invoice data
+ * Generates ZUGFeRD 2.3.2 Extended compliant XML from invoice data
  * @param {Object} data - The invoice data
  * @returns {string} - The generated XML content
  */
@@ -66,19 +66,20 @@ function generateZugferd(data) {
         }
     };
     
-    const invoiceDate = formatXmlDate(data.invoiceDate);
+    const invoiceDate = formatXmlDate(data.invoiceDate) || formatXmlDate(new Date().toISOString());
     const deliveryStartDate = formatXmlDate(data.deliveryDateStart);
     const deliveryEndDate = formatXmlDate(data.deliveryDateEnd);
+    const dueDate = formatXmlDate(data.dueDate);
     
     // Extract postal code, city, and street from addresses
     const extractAddressParts = (address) => {
         const lines = address.split('\n').map(line => line.trim()).filter(line => line);
-        let postalCode = '';
-        let city = '';
-        let street = '';
+        let postalCode = '00000'; // Default value
+        let city = 'Unknown City'; // Default value
+        let street = 'Unknown Street'; // Default value
         let country = 'DE'; // Default to Germany
         
-        if (lines.length >= 1) street = lines[0];
+        if (lines.length >= 1) street = lines[0] || street;
         
         // Try to extract postal code and city from the second line
         if (lines.length >= 2) {
@@ -87,14 +88,14 @@ function generateZugferd(data) {
                 postalCode = match[1];
                 city = match[2];
             } else {
-                city = lines[1];
+                city = lines[1] || city;
             }
         }
         
         // Check if there's a country in the last line
         if (lines.length >= 3) {
             if (lines[lines.length-1].trim().toLowerCase() !== 'germany') {
-                country = lines[lines.length-1].trim();
+                country = lines[lines.length-1].trim() || country;
             }
         }
         
@@ -110,10 +111,10 @@ function generateZugferd(data) {
     const bankBIC = bankInfo.length > 1 ? bankInfo[1] : '';
     
     // Ensure we have a valid invoice number (BR-02)
-    const invoiceNumber = data.invoiceNumber || `INV-${Date.now()}`;
+    const invoiceNumber = data.invoiceNumber ? data.invoiceNumber.trim() : `INV-${Date.now()}`;
     
     // Ensure we have a valid buyer name (BR-07)
-    const buyerName = data.clientName || "Unknown Buyer";
+    const buyerName = data.clientName ? data.clientName.trim() : "Unknown Buyer";
     
     // Create XML structure for ZUGFeRD 2.3.2 Extended
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -124,7 +125,7 @@ function generateZugferd(data) {
     <!-- HEADER -->
     <rsm:ExchangedDocumentContext>
         <ram:GuidelineSpecifiedDocumentContextParameter>
-            <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:extended</ram:ID>
+            <ram:ID>urn:factur-x.eu:1p0:extended</ram:ID>
         </ram:GuidelineSpecifiedDocumentContextParameter>
     </rsm:ExchangedDocumentContext>
     
@@ -182,7 +183,7 @@ function generateZugferd(data) {
         <!-- SELLER INFORMATION -->
         <ram:ApplicableHeaderTradeAgreement>
             <ram:SellerTradeParty>
-                <ram:Name>${data.companyName}</ram:Name>
+                <ram:Name>${data.companyName || 'Seller Company'}</ram:Name>
                 <ram:PostalTradeAddress>
                     <ram:PostcodeCode>${companyAddressParts.postalCode}</ram:PostcodeCode>
                     <ram:LineOne>${companyAddressParts.street}</ram:LineOne>
@@ -190,7 +191,7 @@ function generateZugferd(data) {
                     <ram:CountryID>DE</ram:CountryID>
                 </ram:PostalTradeAddress>
                 <ram:SpecifiedTaxRegistration>
-                    <ram:ID schemeID="VA">${data.companyTaxId}</ram:ID>
+                    <ram:ID schemeID="VA">${data.companyTaxId || 'DE000000000'}</ram:ID>
                 </ram:SpecifiedTaxRegistration>
             </ram:SellerTradeParty>
             
@@ -233,6 +234,20 @@ function generateZugferd(data) {
                 </ram:PayeeSpecifiedCreditorFinancialInstitution>` : ''}
             </ram:SpecifiedTradeSettlementPaymentMeans>` : ''}
             
+            <!-- PAYMENT TERMS (BT-20) -->
+            ${data.paymentTerms ? `
+            <ram:SpecifiedTradePaymentTerms>
+                <ram:Description>${data.paymentTerms} days</ram:Description>
+            </ram:SpecifiedTradePaymentTerms>` : ''}
+            
+            <!-- DUE DATE (BT-9) -->
+            ${dueDate ? `
+            <ram:SpecifiedTradePaymentTerms>
+                <ram:DueDateDateTime>
+                    <udt:DateTimeString format="102">${dueDate.replace(/-/g, '')}</udt:DateTimeString>
+                </ram:DueDateDateTime>
+            </ram:SpecifiedTradePaymentTerms>` : ''}
+            
             <!-- TAX INFORMATION -->
             <ram:ApplicableTradeTax>
                 <ram:CalculatedAmount>${totalVat.toFixed(2)}</ram:CalculatedAmount>
@@ -257,29 +272,3 @@ function generateZugferd(data) {
     
     return xml;
 }
-
-/**
- * Helper function to format dates properly for ZUGFeRD
- * @param {string} dateString - The date string to format
- * @returns {string} - The formatted date
- */
-function formatDate(dateString) {
-    if (!dateString) return '';
-    
-    // Remove any non-digit characters and ensure we have 8 digits (YYYYMMDD)
-    const digits = dateString.replace(/\D/g, '');
-    if (digits.length === 8) return digits;
-    
-    // If the input is in YYYY-MM-DD format
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-        return parts.join('');
-    }
-    
-    // Default fallback - just return the original with non-digits removed
-    return digits;
-}
-
-// Export the functions
-// Export generateZugferd as generateXRechnung as well to match the import in xml.js
-export { generateZugferd, formatDate, generateZugferd as generateXRechnung };
