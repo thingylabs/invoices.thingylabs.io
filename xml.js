@@ -1,4 +1,4 @@
-// XML generation functionality
+// xml.js
 
 document.addEventListener('DOMContentLoaded', function() {
     // Generate XML
