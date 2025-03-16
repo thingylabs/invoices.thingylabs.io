@@ -829,16 +829,15 @@ function generateXRechnung(data) {
                 </cac:Country>
             </cac:PostalAddress>
             
-            <cac:PartyTaxScheme>
-                <cbc:CompanyID>${data.reverseCharge ? 'Unknown' : 'N/A'}</cbc:CompanyID>
-                <cac:TaxScheme>
-                    <cbc:ID>VAT</cbc:ID>
-                </cac:TaxScheme>
-            </cac:PartyTaxScheme>
-            
             <cac:PartyLegalEntity>
                 <cbc:RegistrationName>${data.clientName}</cbc:RegistrationName>
             </cac:PartyLegalEntity>
+            
+            <!-- Add one of the expected elements -->
+            <cac:Person>
+                <cbc:FirstName>Contact</cbc:FirstName>
+                <cbc:FamilyName>Person</cbc:FamilyName>
+            </cac:Person>
         </cac:Party>
     </cac:AccountingCustomerParty>
     
