@@ -598,7 +598,7 @@ function formatDate(dateString) {
     return digits;
 }
 
-// Function to generate ZUGFeRD-compliant XML
+// Function to generate XRechnung 3.0.2 compliant XML
 function generateXRechnung(data) {
     // Ensure data object has all required properties
     data = {
@@ -651,147 +651,235 @@ function generateXRechnung(data) {
     const now = new Date();
     const formattedNow = now.toISOString().split('T')[0].replace(/-/g, '');
     
-    // Create XML structure for ZUGFeRD 2.3.2 (CrossIndustryInvoice format)
+    // Extract postal code, city, and street from addresses
+    const extractAddressParts = (address) => {
+        const lines = address.split('\n').map(line => line.trim()).filter(line => line);
+        let postalCode = '';
+        let city = '';
+        let street = '';
+        
+        if (lines.length >= 1) street = lines[0];
+        
+        // Try to extract postal code and city from the second line
+        if (lines.length >= 2) {
+            const match = lines[1].match(/(\d{5})\s+(.+)/);
+            if (match) {
+                postalCode = match[1];
+                city = match[2];
+            } else {
+                city = lines[1];
+            }
+        }
+        
+        return { postalCode, city, street };
+    };
+    
+    const companyAddressParts = extractAddressParts(data.companyAddress);
+    const clientAddressParts = extractAddressParts(data.clientAddress);
+    
+    // Create XML structure for XRechnung 3.0.2
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
-                         xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
-                         xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100"
-                         xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100">
-    <rsm:ExchangedDocumentContext>
-        <ram:GuidelineSpecifiedDocumentContextParameter>
-            <ram:ID>urn:cen.eu:en16931:2017</ram:ID>
-        </ram:GuidelineSpecifiedDocumentContextParameter>
-        <!-- Removed BusinessProcessSpecifiedDocumentContextParameter as it's not expected -->
-    </rsm:ExchangedDocumentContext>
+<ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+             xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+             xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     
-    <rsm:ExchangedDocument>
-        <ram:ID>${data.invoiceNumber}</ram:ID>
-        <ram:TypeCode>380</ram:TypeCode>
-        <ram:IssueDateTime>
-            <udt:DateTimeString format="102">${formatDate(data.invoiceDate)}</udt:DateTimeString>
-        </ram:IssueDateTime>
-        ${data.reverseCharge ? '<ram:IncludedNote><ram:Content>Reverse charge: VAT liability transfers to the recipient of this invoice</ram:Content><ram:SubjectCode>AAI</ram:SubjectCode></ram:IncludedNote>' : ''}
-        <!-- Removed LanguageID as it's not expected -->
-    </rsm:ExchangedDocument>
+    <!-- BT-24 Specification identifier -->
+    <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xoev-de:kosit:standard:xrechnung_3.0</cbc:CustomizationID>
     
-    <rsm:SupplyChainTradeTransaction>
-        <!-- Line items -->
-        ${data.lineItems.map((item, index) => {
-            const quantity = parseFloat(item.quantity) || 0;
-            const price = parseFloat(item.price) || 0;
-            const lineTotal = quantity * price;
-            return `
-        <ram:IncludedSupplyChainTradeLineItem>
-            <ram:AssociatedDocumentLineDocument>
-                <ram:LineID>${index + 1}</ram:LineID>
-            </ram:AssociatedDocumentLineDocument>
-            <ram:SpecifiedTradeProduct>
-                <ram:Name>${item.description || ''}</ram:Name>
-            </ram:SpecifiedTradeProduct>
-            <ram:SpecifiedLineTradeAgreement>
-                <ram:NetPriceProductTradePrice>
-                    <ram:ChargeAmount>${price.toFixed(2)}</ram:ChargeAmount>
-                    <ram:BasisQuantity unitCode="C62">1</ram:BasisQuantity>
-                </ram:NetPriceProductTradePrice>
-            </ram:SpecifiedLineTradeAgreement>
-            <ram:SpecifiedLineTradeDelivery>
-                <ram:BilledQuantity unitCode="C62">${quantity}</ram:BilledQuantity>
-            </ram:SpecifiedLineTradeDelivery>
-            <ram:SpecifiedLineTradeSettlement>
-                <ram:ApplicableTradeTax>
-                    <ram:TypeCode>${taxTypeCode}</ram:TypeCode>
-                    <ram:CategoryCode>${taxCategoryCode}</ram:CategoryCode>
-                    <ram:RateApplicablePercent>${data.reverseCharge ? '0' : (parseFloat(item.vat) || 0)}</ram:RateApplicablePercent>
-                </ram:ApplicableTradeTax>
-                <ram:SpecifiedTradeSettlementLineMonetarySummation>
-                    <ram:LineTotalAmount>${lineTotal.toFixed(2)}</ram:LineTotalAmount>
-                </ram:SpecifiedTradeSettlementLineMonetarySummation>
-            </ram:SpecifiedLineTradeSettlement>
-        </ram:IncludedSupplyChainTradeLineItem>`;
-        }).join('')}
+    <!-- BT-23 Business process type -->
+    <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
+    
+    <!-- BT-1 Invoice number -->
+    <cbc:ID>${data.invoiceNumber}</cbc:ID>
+    
+    <!-- BT-2 Invoice issue date -->
+    <cbc:IssueDate>${data.invoiceDate.replace(/-/g, '')}</cbc:IssueDate>
+    
+    <!-- BT-3 Invoice type code -->
+    <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+    
+    <!-- BT-22 Invoice note -->
+    <cbc:Note>${data.reverseCharge ? 'Reverse charge: VAT liability transfers to the recipient of this invoice' : ''}</cbc:Note>
+    
+    <!-- BT-7 Tax point date -->
+    <cbc:TaxPointDate>${data.invoiceDate.replace(/-/g, '')}</cbc:TaxPointDate>
+    
+    <!-- BT-5 Invoice currency code -->
+    <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+    
+    <!-- BT-6 VAT accounting currency code -->
+    <cbc:TaxCurrencyCode>EUR</cbc:TaxCurrencyCode>
+    
+    <!-- BT-19 Buyer accounting reference -->
+    <cbc:AccountingCost>${data.invoiceNumber}</cbc:AccountingCost>
+    
+    <!-- BG-1 Invoice period -->
+    <cac:InvoicePeriod>
+        ${data.deliveryDateStart ? `<cbc:StartDate>${data.deliveryDateStart.replace(/-/g, '')}</cbc:StartDate>` : ''}
+        ${data.deliveryDateEnd ? `<cbc:EndDate>${data.deliveryDateEnd.replace(/-/g, '')}</cbc:EndDate>` : ''}
+    </cac:InvoicePeriod>
+    
+    <!-- BG-24 Additional supporting documents -->
+    <cac:AdditionalDocumentReference>
+        <cbc:ID>Invoice-${data.invoiceNumber}</cbc:ID>
+        <cbc:DocumentTypeCode>130</cbc:DocumentTypeCode>
+        <cbc:DocumentDescription>Invoice document</cbc:DocumentDescription>
+    </cac:AdditionalDocumentReference>
+    
+    <!-- BG-2 Process control -->
+    <cac:AccountingSupplierParty>
+        <cac:Party>
+            <!-- BT-29 Seller identifier -->
+            <cbc:EndpointID schemeID="0088">${data.companyRegNumber}</cbc:EndpointID>
+            
+            <cac:PartyIdentification>
+                <cbc:ID>${data.companyRegNumber}</cbc:ID>
+            </cac:PartyIdentification>
+            
+            <cac:PartyName>
+                <cbc:Name>${data.companyName}</cbc:Name>
+            </cac:PartyName>
+            
+            <!-- BG-5 Seller postal address -->
+            <cac:PostalAddress>
+                <cbc:StreetName>${companyAddressParts.street}</cbc:StreetName>
+                <cbc:CityName>${companyAddressParts.city}</cbc:CityName>
+                <cbc:PostalZone>${companyAddressParts.postalCode}</cbc:PostalZone>
+                <cbc:CountrySubentity></cbc:CountrySubentity>
+                <cac:Country>
+                    <cbc:IdentificationCode>DE</cbc:IdentificationCode>
+                </cac:Country>
+            </cac:PostalAddress>
+            
+            <!-- BG-6 Seller contact -->
+            <cac:Contact>
+                <cbc:Name>Contact</cbc:Name>
+                <cbc:Telephone>${data.companyPhone}</cbc:Telephone>
+                <cbc:ElectronicMail>${data.companyEmail}</cbc:ElectronicMail>
+            </cac:Contact>
+            
+            <!-- BG-4 Seller -->
+            <cac:PartyTaxScheme>
+                <cbc:CompanyID>${data.companyTaxId}</cbc:CompanyID>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:PartyTaxScheme>
+            
+            <cac:PartyLegalEntity>
+                <cbc:RegistrationName>${data.companyName}</cbc:RegistrationName>
+                <cbc:CompanyID>${data.companyRegNumber}</cbc:CompanyID>
+            </cac:PartyLegalEntity>
+        </cac:Party>
+    </cac:AccountingSupplierParty>
+    
+    <!-- BG-7 Buyer -->
+    <cac:AccountingCustomerParty>
+        <cac:Party>
+            <cac:PartyIdentification>
+                <cbc:ID>Client-${data.invoiceNumber}</cbc:ID>
+            </cac:PartyIdentification>
+            
+            <cac:PartyName>
+                <cbc:Name>${data.clientName}</cbc:Name>
+            </cac:PartyName>
+            
+            <!-- BG-8 Buyer postal address -->
+            <cac:PostalAddress>
+                <cbc:StreetName>${clientAddressParts.street}</cbc:StreetName>
+                <cbc:CityName>${clientAddressParts.city}</cbc:CityName>
+                <cbc:PostalZone>${clientAddressParts.postalCode}</cbc:PostalZone>
+                <cbc:CountrySubentity></cbc:CountrySubentity>
+                <cac:Country>
+                    <cbc:IdentificationCode>${data.reverseCharge ? 'XX' : 'DE'}</cbc:IdentificationCode>
+                </cac:Country>
+            </cac:PostalAddress>
+            
+            <cac:PartyTaxScheme>
+                <cbc:CompanyID>${data.reverseCharge ? 'Unknown' : 'N/A'}</cbc:CompanyID>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:PartyTaxScheme>
+            
+            <cac:PartyLegalEntity>
+                <cbc:RegistrationName>${data.clientName}</cbc:RegistrationName>
+            </cac:PartyLegalEntity>
+        </cac:Party>
+    </cac:AccountingCustomerParty>
+    
+    <!-- BG-16 Payment instructions -->
+    <cac:PaymentMeans>
+        <cbc:PaymentMeansCode>58</cbc:PaymentMeansCode>
+        <cbc:PaymentID>${data.invoiceNumber}</cbc:PaymentID>
+        <cac:PayeeFinancialAccount>
+            <cbc:ID>${data.companyBankInfo.split('\n')[0]}</cbc:ID>
+            <cac:FinancialInstitutionBranch>
+                <cbc:ID>${data.companyBankInfo.split('\n')[1] || ''}</cbc:ID>
+            </cac:FinancialInstitutionBranch>
+        </cac:PayeeFinancialAccount>
+    </cac:PaymentMeans>
+    
+    <!-- BG-20 Document level allowances -->
+    
+    <!-- BG-22 Document totals -->
+    <cac:TaxTotal>
+        <cbc:TaxAmount currencyID="EUR">${totalVat.toFixed(2)}</cbc:TaxAmount>
         
-        <!-- Header level information -->
-        <ram:ApplicableHeaderTradeAgreement>
-            <ram:BuyerReference>${data.invoiceNumber}</ram:BuyerReference>
-            <ram:SellerTradeParty>
-                <ram:ID>${data.companyRegNumber}</ram:ID>
-                <ram:Name>${data.companyName}</ram:Name>
-                <ram:PostalTradeAddress>
-                    <ram:PostcodeCode></ram:PostcodeCode>
-                    <ram:LineOne>${data.companyAddress}</ram:LineOne>
-                    <ram:CityName></ram:CityName>
-                    <ram:CountryID>DE</ram:CountryID>
-                </ram:PostalTradeAddress>
-                <ram:SpecifiedTaxRegistration>
-                    <ram:ID schemeID="VA">${data.companyTaxId}</ram:ID>
-                </ram:SpecifiedTaxRegistration>
-                <!-- Removed SpecifiedLegalOrganization as it's not expected -->
-                <ram:DefinedTradeContact>
-                    <ram:EmailURIUniversalCommunication>
-                        <ram:URIID>${data.companyEmail}</ram:URIID>
-                    </ram:EmailURIUniversalCommunication>
-                    <ram:TelephoneUniversalCommunication>
-                        <ram:CompleteNumber>${data.companyPhone}</ram:CompleteNumber>
-                    </ram:TelephoneUniversalCommunication>
-                </ram:DefinedTradeContact>
-            </ram:SellerTradeParty>
-            
-            <ram:BuyerTradeParty>
-                <ram:Name>${data.clientName}</ram:Name>
-                <ram:PostalTradeAddress>
-                    <ram:PostcodeCode></ram:PostcodeCode>
-                    <ram:LineOne>${data.clientAddress}</ram:LineOne>
-                    <ram:CityName></ram:CityName>
-                    <ram:CountryID>${data.reverseCharge ? 'XX' : 'DE'}</ram:CountryID>
-                </ram:PostalTradeAddress>
-            </ram:BuyerTradeParty>
-        </ram:ApplicableHeaderTradeAgreement>
+        <cac:TaxSubtotal>
+            <cbc:TaxableAmount currencyID="EUR">${subtotal.toFixed(2)}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="EUR">${totalVat.toFixed(2)}</cbc:TaxAmount>
+            <cac:TaxCategory>
+                <cbc:ID>${taxCategoryCode}</cbc:ID>
+                <cbc:Percent>${data.reverseCharge ? '0' : '19'}</cbc:Percent>
+                ${data.reverseCharge ? '<cbc:TaxExemptionReason>Reverse charge</cbc:TaxExemptionReason>' : ''}
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:TaxCategory>
+        </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    
+    <cac:LegalMonetaryTotal>
+        <cbc:LineExtensionAmount currencyID="EUR">${subtotal.toFixed(2)}</cbc:LineExtensionAmount>
+        <cbc:TaxExclusiveAmount currencyID="EUR">${subtotal.toFixed(2)}</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="EUR">${total.toFixed(2)}</cbc:TaxInclusiveAmount>
+        <cbc:PayableAmount currencyID="EUR">${total.toFixed(2)}</cbc:PayableAmount>
+    </cac:LegalMonetaryTotal>
+    
+    <!-- BG-25 Invoice lines -->
+    ${data.lineItems.map((item, index) => {
+        const quantity = parseFloat(item.quantity) || 0;
+        const price = parseFloat(item.price) || 0;
+        const lineTotal = quantity * price;
+        return `
+    <cac:InvoiceLine>
+        <cbc:ID>${index + 1}</cbc:ID>
+        <cbc:InvoicedQuantity unitCode="C62">${quantity}</cbc:InvoicedQuantity>
+        <cbc:LineExtensionAmount currencyID="EUR">${lineTotal.toFixed(2)}</cbc:LineExtensionAmount>
         
-        <ram:ApplicableHeaderTradeDelivery>
-            <ram:ActualDeliverySupplyChainEvent>
-                <ram:OccurrenceDateTime>
-                    <udt:DateTimeString format="102">${formatDate(data.deliveryDateEnd)}</udt:DateTimeString>
-                </ram:OccurrenceDateTime>
-            </ram:ActualDeliverySupplyChainEvent>
-        </ram:ApplicableHeaderTradeDelivery>
+        <cac:Item>
+            <cbc:Description>${item.description || ''}</cbc:Description>
+            <cbc:Name>${item.description || 'Item'}</cbc:Name>
+            
+            <cac:ClassifiedTaxCategory>
+                <cbc:ID>${taxCategoryCode}</cbc:ID>
+                <cbc:Percent>${data.reverseCharge ? '0' : (parseFloat(item.vat) || 0)}</cbc:Percent>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:ClassifiedTaxCategory>
+        </cac:Item>
         
-        <ram:ApplicableHeaderTradeSettlement>
-            <ram:PaymentReference>${data.invoiceNumber}</ram:PaymentReference>
-            <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
-            
-            <ram:SpecifiedTradeSettlementPaymentMeans>
-                <ram:TypeCode>58</ram:TypeCode>
-                <ram:Information>Überweisung</ram:Information>
-                <ram:PayeePartyCreditorFinancialAccount>
-                    <ram:IBANID>${data.companyBankInfo}</ram:IBANID>
-                </ram:PayeePartyCreditorFinancialAccount>
-            </ram:SpecifiedTradeSettlementPaymentMeans>
-            
-            <ram:ApplicableTradeTax>
-                <ram:CalculatedAmount>${totalVat.toFixed(2)}</ram:CalculatedAmount>
-                <ram:TypeCode>${taxTypeCode}</ram:TypeCode>
-                <ram:BasisAmount>${subtotal.toFixed(2)}</ram:BasisAmount>
-                <ram:CategoryCode>${taxCategoryCode}</ram:CategoryCode>
-                <ram:RateApplicablePercent>${data.reverseCharge ? '0' : '19'}</ram:RateApplicablePercent>
-                ${data.reverseCharge ? '<ram:ExemptionReason>Reverse charge</ram:ExemptionReason>' : ''}
-            </ram:ApplicableTradeTax>
-            
-            <ram:SpecifiedTradePaymentTerms>
-                <ram:DueDateDateTime>
-                    <udt:DateTimeString format="102">${formatDate(data.invoiceDate)}</udt:DateTimeString>
-                </ram:DueDateDateTime>
-            </ram:SpecifiedTradePaymentTerms>
-            
-            <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-                <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>
-                <ram:TaxBasisTotalAmount>${subtotal.toFixed(2)}</ram:TaxBasisTotalAmount>
-                <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>
-                <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>
-                <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>
-            </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-        </ram:ApplicableHeaderTradeSettlement>
-    </rsm:SupplyChainTradeTransaction>
-</rsm:CrossIndustryInvoice>`;
+        <cac:Price>
+            <cbc:PriceAmount currencyID="EUR">${price.toFixed(2)}</cbc:PriceAmount>
+            <cbc:BaseQuantity unitCode="C62">1</cbc:BaseQuantity>
+        </cac:Price>
+    </cac:InvoiceLine>`;
+    }).join('')}
+</ubl:Invoice>`;
     
     return xml;
 }
+
