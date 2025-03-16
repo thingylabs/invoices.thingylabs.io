@@ -1,5 +1,3 @@
-// xml-generator.js
-
 /**
  * Generates ZUGFeRD 2.1 Basic compliant XML from invoice data
  * @param {Object} data - The invoice data
@@ -280,4 +278,5 @@ function formatDate(dateString) {
 }
 
 // Export the functions
-export { generateZugferd, formatDate };
+// Export generateZugferd as generateXRechnung as well to match the import in xml.js
+export { generateZugferd, formatDate, generateZugferd as generateXRechnung };
