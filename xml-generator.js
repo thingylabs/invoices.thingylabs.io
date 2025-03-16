@@ -229,7 +229,7 @@ function generateZugferd(data) {
                     <udt:DateTimeString format="102">${dueDate.replace(/-/g, '')}</udt:DateTimeString>
                 </ram:DueDateDateTime>
             </ram:SpecifiedTradePaymentTerms>` : ''}
-        
+
             <!-- Required Referenced Document -->
             <ram:InvoiceReferencedDocument>
                 <ram:IssuerAssignedID>${data.invoiceNumber}</ram:IssuerAssignedID>
@@ -237,12 +237,12 @@ function generateZugferd(data) {
                     <qdt:DateTimeString format="102">${invoiceDate.replace(/-/g, '')}</qdt:DateTimeString>
                 </ram:FormattedIssueDateTime>
             </ram:InvoiceReferencedDocument>
-        
+
             <!-- Required Trade Accounting Account -->
             <ram:ReceivableSpecifiedTradeAccountingAccount>
                 <ram:ID>${data.invoiceNumber}</ram:ID>
             </ram:ReceivableSpecifiedTradeAccountingAccount>
-        
+
             <!-- TOTALS -->
             <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
                 <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>
@@ -250,16 +250,6 @@ function generateZugferd(data) {
                 <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>
                 <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>
                 <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>
-                
-                <!-- TAX INFORMATION -->
-                <ram:ApplicableTradeTax>
-                    <ram:CalculatedAmount>${totalVat.toFixed(2)}</ram:CalculatedAmount>
-                    <ram:TypeCode>VAT</ram:TypeCode>
-                    <ram:BasisAmount>${subtotal.toFixed(2)}</ram:BasisAmount>
-                    <ram:CategoryCode>${data.reverseCharge ? 'AE' : 'S'}</ram:CategoryCode>
-                    <ram:RateApplicablePercent>${data.reverseCharge ? '0' : '19'}</ram:RateApplicablePercent>
-                    ${data.reverseCharge ? '<ram:ExemptionReason>Reverse charge</ram:ExemptionReason>' : ''}
-                </ram:ApplicableTradeTax>
             </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
         </ram:ApplicableHeaderTradeSettlement>
 
