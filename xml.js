@@ -659,11 +659,9 @@ function generateXRechnung(data) {
                          xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100">
     <rsm:ExchangedDocumentContext>
         <ram:GuidelineSpecifiedDocumentContextParameter>
-            <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:zugferd.de:2p3p2:extended</ram:ID>
+            <ram:ID>urn:cen.eu:en16931:2017</ram:ID>
         </ram:GuidelineSpecifiedDocumentContextParameter>
-        <ram:BusinessProcessSpecifiedDocumentContextParameter>
-            <ram:ID>urn:zugferd.de:2p3p2:comfort</ram:ID>
-        </ram:BusinessProcessSpecifiedDocumentContextParameter>
+        <!-- Removed BusinessProcessSpecifiedDocumentContextParameter as it's not expected -->
     </rsm:ExchangedDocumentContext>
     
     <rsm:ExchangedDocument>
@@ -673,7 +671,7 @@ function generateXRechnung(data) {
             <udt:DateTimeString format="102">${formatDate(data.invoiceDate)}</udt:DateTimeString>
         </ram:IssueDateTime>
         ${data.reverseCharge ? '<ram:IncludedNote><ram:Content>Reverse charge: VAT liability transfers to the recipient of this invoice</ram:Content><ram:SubjectCode>AAI</ram:SubjectCode></ram:IncludedNote>' : ''}
-        <ram:LanguageID>de</ram:LanguageID>
+        <!-- Removed LanguageID as it's not expected -->
     </rsm:ExchangedDocument>
     
     <rsm:SupplyChainTradeTransaction>
@@ -727,9 +725,7 @@ function generateXRechnung(data) {
                 <ram:SpecifiedTaxRegistration>
                     <ram:ID schemeID="VA">${data.companyTaxId}</ram:ID>
                 </ram:SpecifiedTaxRegistration>
-                <ram:SpecifiedLegalOrganization>
-                    <ram:ID schemeID="0021">${data.companyRegNumber}</ram:ID>
-                </ram:SpecifiedLegalOrganization>
+                <!-- Removed SpecifiedLegalOrganization as it's not expected -->
                 <ram:DefinedTradeContact>
                     <ram:EmailURIUniversalCommunication>
                         <ram:URIID>${data.companyEmail}</ram:URIID>
