@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Thingylabs Invoice Generator</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="/fonts.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://www.thingylabs.io/fonts.css" media="print" onload="this.media='all'">
 </head>
 <body>
     <nav>
@@ -79,8 +79,18 @@ Germany</textarea>
                 </div>
                 
                 <div class="form-group">
+                    <label for="paymentTerms">Payment Terms (days)</label>
+                    <input type="number" id="paymentTerms" min="0" value="7">
+                </div>
+                
+                <div class="form-group">
                     <label for="companyBankInfo">Bank Information</label>
-                    <textarea id="companyBankInfo" rows="3"></textarea>
+                    <textarea id="companyBankInfo" rows="3">BE50967609727818
+TRWIBEB1XXX</textarea>
+                </div>
+                
+                <div class="config-actions">
+                    <button type="button" id="saveCompanyConfig">Save Configuration</button>
                 </div>
             </div>
             
@@ -216,6 +226,4 @@ Germany</textarea>
     <script defer src="invoice.js"></script>
     <script defer src="xml.js"></script>
     <script defer src="pdf.js"></script>
-    <script defer data-domain="thingylabs.io" src="https://plausible.io/js/script.js"></script>
-</body>
-</html>
+    <script defer data-domain="thingylabs.io" src="https://plaus
