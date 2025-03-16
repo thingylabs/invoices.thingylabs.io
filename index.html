@@ -198,6 +198,37 @@
             width: auto;
         }
 
+        .date-range {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .date-range input {
+            flex: 1;
+        }
+
+        .client-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .client-actions button {
+            padding: 0.5rem;
+            margin: 0;
+        }
+
+        .client-select-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .client-select-container select {
+            flex: 1;
+        }
+
         @media (max-width: 768px) {
             .container {
                 grid-template-columns: 1fr;
@@ -296,11 +327,22 @@ Germany</textarea>
             </div>
             
             <div class="form-group">
-                <label for="deliveryDate">Delivery/Service Date</label>
-                <input type="date" id="deliveryDate">
+                <label for="deliveryDateStart">Service Period</label>
+                <div class="date-range">
+                    <input type="date" id="deliveryDateStart">
+                    <span>to</span>
+                    <input type="date" id="deliveryDateEnd">
+                </div>
             </div>
             
             <h2>Client Information</h2>
+            
+            <div class="client-select-container">
+                <select id="clientSelect">
+                    <option value="">-- Select a client --</option>
+                    <option value="new">+ Add new client</option>
+                </select>
+            </div>
             
             <div class="form-group">
                 <label for="clientName">Client Name/Company</label>
@@ -310,6 +352,11 @@ Germany</textarea>
             <div class="form-group">
                 <label for="clientAddress">Client Address</label>
                 <textarea id="clientAddress" rows="3" placeholder="Street, City, Postal Code"></textarea>
+            </div>
+            
+            <div class="client-actions">
+                <button type="button" id="saveClient">Save Client</button>
+                <button type="button" id="deleteClient">Delete Client</button>
             </div>
             
             <div class="checkbox-group">
@@ -374,7 +421,8 @@ Germany</textarea>
             // Set default date to today
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('invoiceDate').value = today;
-            document.getElementById('deliveryDate').value = today;
+            document.getElementById('deliveryDateStart').value = today;
+            document.getElementById('deliveryDateEnd').value = today;
             
             // Invoice number generation
             const generateInvoiceNumber = document.getElementById('generateInvoiceNumber');
@@ -389,6 +437,136 @@ Germany</textarea>
                 document.getElementById('invoiceNumber').value = generateNewInvoiceNumber();
             }
             
+            // Load saved clients
+            loadClients();
+            
+            // Client selection change
+            document.getElementById('clientSelect').addEventListener('change', function() {
+                const selectedValue = this.value;
+                
+                if (selectedValue === 'new') {
+                    // Clear client fields for new client
+                    document.getElementById('clientName').value = '';
+                    document.getElementById('clientAddress').value = '';
+                    document.getElementById('reverseCharge').checked = false;
+                    
+                    // Reset the dropdown to the first option
+                    this.selectedIndex = 0;
+                } else if (selectedValue) {
+                    // Load client data
+                    const clients = JSON.parse(localStorage.getItem('savedClients') || '[]');
+                    const selectedClient = clients.find(client => client.id === selectedValue);
+                    
+                    if (selectedClient) {
+                        document.getElementById('clientName').value = selectedClient.name;
+                        document.getElementById('clientAddress').value = selectedClient.address;
+                        document.getElementById('reverseCharge').checked = selectedClient.reverseCharge;
+                        
+                        // Update VAT fields based on reverse charge
+                        const vatInputs = document.querySelectorAll('.item-vat');
+                        if (selectedClient.reverseCharge) {
+                            vatInputs.forEach(input => {
+                                input.value = '0';
+                                input.disabled = true;
+                            });
+                        } else {
+                            vatInputs.forEach(input => {
+                                input.value = '19';
+                                input.disabled = false;
+                            });
+                        }
+                        
+                        updatePreview();
+                    }
+                }
+            });
+            
+            // Save client
+            document.getElementById('saveClient').addEventListener('click', function() {
+                const clientName = document.getElementById('clientName').value.trim();
+                const clientAddress = document.getElementById('clientAddress').value.trim();
+                const reverseCharge = document.getElementById('reverseCharge').checked;
+                
+                if (!clientName) {
+                    alert('Please enter a client name');
+                    return;
+                }
+                
+                // Get existing clients
+                const clients = JSON.parse(localStorage.getItem('savedClients') || '[]');
+                
+                // Check if client already exists
+                const existingClientIndex = clients.findIndex(client => client.name === clientName);
+                
+                if (existingClientIndex >= 0) {
+                    // Update existing client
+                    clients[existingClientIndex] = {
+                        id: clients[existingClientIndex].id,
+                        name: clientName,
+                        address: clientAddress,
+                        reverseCharge: reverseCharge
+                    };
+                    
+                    alert(`Client "${clientName}" updated`);
+                } else {
+                    // Add new client
+                    const newClient = {
+                        id: Date.now().toString(), // Use timestamp as ID
+                        name: clientName,
+                        address: clientAddress,
+                        reverseCharge: reverseCharge
+                    };
+                    
+                    clients.push(newClient);
+                    alert(`Client "${clientName}" saved`);
+                }
+                
+                // Save to localStorage
+                localStorage.setItem('savedClients', JSON.stringify(clients));
+                
+                // Reload client dropdown
+                loadClients();
+            });
+            
+            // Delete client
+            document.getElementById('deleteClient').addEventListener('click', function() {
+                const clientName = document.getElementById('clientName').value.trim();
+                
+                if (!clientName) {
+                    alert('Please select a client to delete');
+                    return;
+                }
+                
+                // Get existing clients
+                const clients = JSON.parse(localStorage.getItem('savedClients') || '[]');
+                
+                // Find client index
+                const clientIndex = clients.findIndex(client => client.name === clientName);
+                
+                if (clientIndex >= 0) {
+                    if (confirm(`Are you sure you want to delete client "${clientName}"?`)) {
+                        // Remove client
+                        clients.splice(clientIndex, 1);
+                        
+                        // Save to localStorage
+                        localStorage.setItem('savedClients', JSON.stringify(clients));
+                        
+                        // Clear client fields
+                        document.getElementById('clientName').value = '';
+                        document.getElementById('clientAddress').value = '';
+                        document.getElementById('reverseCharge').checked = false;
+                        
+                        // Reload client dropdown
+                        loadClients();
+                        
+                        alert(`Client "${clientName}" deleted`);
+                        updatePreview();
+                    }
+                } else {
+                    alert(`Client "${clientName}" not found`);
+                }
+            });
+            
             // Add line item
             document.getElementById('addLineItem').addEventListener('click', addLineItem);
             
@@ -401,7 +579,7 @@ Germany</textarea>
             });
             
             // Add event listeners for all form inputs
-            const allInputs = document.querySelectorAll('input, textarea');
+            const allInputs = document.querySelectorAll('input, textarea, select');
             allInputs.forEach(input => {
                 input.addEventListener('input', updatePreview);
             });
@@ -434,8 +612,114 @@ Germany</textarea>
             // Generate XML
             document.getElementById('generateXml').addEventListener('click', generateXml);
             
+            // Load last used form data
+            loadLastFormData();
+            
             // Initial preview update
             updatePreview();
+        }
+
+        // Function to load clients into dropdown
+        function loadClients() {
+            const clientSelect = document.getElementById('clientSelect');
+            const clients = JSON.parse(localStorage.getItem('savedClients') || '[]');
+            
+            // Clear existing options except the first two
+            while (clientSelect.options.length > 2) {
+                clientSelect.remove(2);
+            }
+            
+            // Sort clients alphabetically
+            clients.sort((a, b) => a.name.localeCompare(b.name));
+            
+            // Add client options
+            clients.forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.id;
+                option.textContent = client.name;
+                clientSelect.appendChild(option);
+            });
+        }
+
+        // Function to save the current form data
+        function saveFormData() {
+            const data = collectFormData();
+            localStorage.setItem('lastFormData', JSON.stringify(data));
+        }
+
+        // Function to load the last used form data
+        function loadLastFormData() {
+            const lastFormData = JSON.parse(localStorage.getItem('lastFormData') || '{}');
+            
+            if (Object.keys(lastFormData).length === 0) {
+                return; // No saved data
+            }
+            
+            // Restore client information
+            if (lastFormData.clientName) {
+                document.getElementById('clientName').value = lastFormData.clientName;
+            }
+            
+            if (lastFormData.clientAddress) {
+                document.getElementById('clientAddress').value = lastFormData.clientAddress;
+            }
+            
+            if (lastFormData.reverseCharge) {
+                document.getElementById('reverseCharge').checked = lastFormData.reverseCharge;
+                
+                // Update VAT fields
+                const vatInputs = document.querySelectorAll('.item-vat');
+                if (lastFormData.reverseCharge) {
+                    vatInputs.forEach(input => {
+                        input.value = '0';
+                        input.disabled = true;
+                    });
+                }
+            }
+            
+            // Restore notes
+            if (lastFormData.notes) {
+                document.getElementById('notes').value = lastFormData.notes;
+            }
+            
+            // Restore line items (if any)
+            if (lastFormData.lineItems && lastFormData.lineItems.length > 0) {
+                // Clear existing line items
+                const lineItemsContainer = document.getElementById('lineItemsContainer');
+                lineItemsContainer.innerHTML = '';
+                
+                // Add saved line items
+                lastFormData.lineItems.forEach(item => {
+                    const lineItem = document.createElement('div');
+                    lineItem.className = 'line-item';
+                    
+                    const vatDisabled = lastFormData.reverseCharge ? 'disabled' : '';
+                    
+                    lineItem.innerHTML = `
+                        <input type="text" placeholder="Description" class="item-description" value="${item.description || ''}">
+                        <input type="number" placeholder="Quantity" class="item-quantity" min="1" value="${item.quantity || 1}">
+                        <input type="number" placeholder="Price" class="item-price" min="0" step="0.01" value="${item.price || ''}">
+                        <input type="number" placeholder="VAT %" class="item-vat" min="0" value="${item.vat || 0}" ${vatDisabled}>
+                        <button type="button" class="remove-item">✕</button>
+                    `;
+                    
+                    lineItemsContainer.appendChild(lineItem);
+                    
+                    // Add event listener to the new remove button
+                    lineItem.querySelector('.remove-item').addEventListener('click', function() {
+                        if (document.querySelectorAll('.line-item').length > 1) {
+                            lineItem.remove();
+                            updatePreview();
+                        }
+                    });
+                    
+                    // Add event listeners for real-time preview updates
+                    const inputs = lineItem.querySelectorAll('input');
+                    inputs.forEach(input => {
+                        input.addEventListener('input', updatePreview);
+                    });
+                });
+            }
         }
 
         // Function to add a new line item
@@ -504,6 +788,9 @@ Germany</textarea>
             const data = collectFormData();
             const preview = document.getElementById('invoicePreview');
             
+            // Save form data for next time
+            saveFormData();
+            
             // Calculate totals
             let subtotal = 0;
             let totalVat = 0;
@@ -528,6 +815,13 @@ Germany</textarea>
             
             const total = subtotal + totalVat;
             
+            // Format service period
+            const deliveryDateStart = formatDate(data.deliveryDateStart);
+            const deliveryDateEnd = formatDate(data.deliveryDateEnd);
+            const servicePeriod = deliveryDateStart === deliveryDateEnd 
+                ? deliveryDateStart 
+                : `${deliveryDateStart} - ${deliveryDateEnd}`;
+            
             // Reverse charge note
             const reverseChargeNote = data.reverseCharge 
                 ? '<p><strong>Note:</strong> VAT 0% - Reverse Charge. VAT liability transfers to the recipient of this invoice.</p>'
@@ -539,7 +833,7 @@ Germany</textarea>
                         <h2 style="margin-bottom: 0.5rem;">INVOICE</h2>
                         <p><strong>Invoice #:</strong> ${data.invoiceNumber}</p>
                         <p><strong>Date:</strong> ${formatDate(data.invoiceDate)}</p>
-                        <p><strong>Delivery Date:</strong> ${formatDate(data.deliveryDate)}</p>
+                        <p><strong>Service Period:</strong> ${servicePeriod}</p>
                     </div>
                     <div style="text-align: right;">
                         <h3>${data.companyName}</h3>
@@ -641,7 +935,8 @@ Germany</textarea>
                 // Invoice details
                 invoiceNumber: document.getElementById('invoiceNumber').value,
                 invoiceDate: document.getElementById('invoiceDate').value,
-                deliveryDate: document.getElementById('deliveryDate').value,
+                deliveryDateStart: document.getElementById('deliveryDateStart').value,
+                deliveryDateEnd: document.getElementById('deliveryDateEnd').value,
                 
                 // Client info
                 clientName: document.getElementById('clientName').value,
@@ -788,6 +1083,13 @@ Germany</textarea>
             </cac:PartyLegalEntity>
         </cac:Party>
     </cac:AccountingCustomerParty>
+    
+    <cac:Delivery>
+        <cac:DeliveryPeriod>
+            <cbc:StartDate>${data.deliveryDateStart}</cbc:StartDate>
+            <cbc:EndDate>${data.deliveryDateEnd}</cbc:EndDate>
+        </cac:DeliveryPeriod>
+    </cac:Delivery>
     
     <cac:PaymentMeans>
         <cbc:PaymentMeansCode>58</cbc:PaymentMeansCode>
