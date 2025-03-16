@@ -272,3 +272,29 @@ function generateZugferd(data) {
     
     return xml;
 }
+
+/**
+ * Helper function to format dates properly for ZUGFeRD
+ * @param {string} dateString - The date string to format
+ * @returns {string} - The formatted date
+ */
+function formatDate(dateString) {
+    if (!dateString) return '';
+    
+    // Remove any non-digit characters and ensure we have 8 digits (YYYYMMDD)
+    const digits = dateString.replace(/\D/g, '');
+    if (digits.length === 8) return digits;
+    
+    // If the input is in YYYY-MM-DD format
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+        return parts.join('');
+    }
+    
+    // Default fallback - just return the original with non-digits removed
+    return digits;
+}
+
+// Export the functions
+// Export generateZugferd as generateXRechnung as well to match the import in xml.js
+export { generateZugferd, formatDate, generateZugferd as generateXRechnung };
