@@ -411,4 +411,173 @@ function populateFormFields(data) {
             const inputs = row.querySelectorAll('input');
             if (inputs.length >= 3) {
                 inputs[0].value = item.description || '';
-                inputs[1
+                inputs[1].value = item.quantity || '';
+                inputs[2].value = item.price || '';
+                if (inputs.length >= 4) {
+                    inputs[3].value = item.vat || '';
+                }
+            }
+            
+            // Add event listener to the remove button
+            const removeButton = row.querySelector('.removeLineItem');
+            if (removeButton) {
+                removeButton.addEventListener('click', function() {
+                    row.remove();
+                    saveFormState();
+                    updatePreview();
+                });
+            }
+            
+            // Add input event listeners
+            inputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    saveFormState();
+                    updatePreview();
+                });
+                input.addEventListener('change', function() {
+                    saveFormState();
+                    updatePreview();
+                });
+            });
+            
+            // Add the row to the container
+            lineItemsContainer.appendChild(row);
+        });
+    } else {
+        // If no saved line items, add one empty row
+        ensureSingleEmptyLineItem();
+    }
+}
+
+// Function to collect all form data
+function collectFormData() {
+    const data = {
+        // Invoice details
+        invoiceNumber: document.getElementById('invoiceNumber')?.value || '',
+        invoiceDate: document.getElementById('invoiceDate')?.value || '',
+        dueDate: '', // Will be calculated based on payment terms
+        
+        // Company details
+        companyName: document.getElementById('companyName')?.value || '',
+        companyAddress: document.getElementById('companyAddress')?.value || '',
+        companyEmail: document.getElementById('companyEmail')?.value || '',
+        companyPhone: document.getElementById('companyPhone')?.value || '',
+        companyTaxId: document.getElementById('companyTaxId')?.value || '',
+        companyRegNumber: document.getElementById('companyRegNumber')?.value || '',
+        companyBankInfo: document.getElementById('companyBankInfo')?.value || '',
+        companyRepresentative: document.getElementById('companyRepresentative')?.value || '',
+        companyTagline: document.getElementById('companyTagline')?.value || '',
+        paymentTerms: document.getElementById('paymentTerms')?.value || '',
+        
+        // Client details
+        clientName: document.getElementById('clientName')?.value || '',
+        clientAddress: document.getElementById('clientAddress')?.value || '',
+        
+        // Delivery details
+        deliveryDateStart: document.getElementById('deliveryDateStart')?.value || '',
+        deliveryDateEnd: document.getElementById('deliveryDateEnd')?.value || '',
+        
+        // Tax settings
+        reverseCharge: document.getElementById('reverseCharge')?.checked || false,
+        
+        // Notes
+        notes: document.getElementById('notes')?.value || '',
+        
+        // Line items
+        lineItems: []
+    };
+    
+    // Calculate due date if invoice date and payment terms are set
+    if (data.invoiceDate && data.paymentTerms) {
+        const dueDate = new Date(data.invoiceDate);
+        dueDate.setDate(dueDate.getDate() + parseInt(data.paymentTerms));
+        data.dueDate = dueDate.toISOString().split('T')[0];
+    }
+    
+    // Collect line items
+    const lineItemsContainer = document.getElementById('lineItemsContainer');
+    if (lineItemsContainer) {
+        const lineItemRows = lineItemsContainer.querySelectorAll('.line-item');
+        
+        lineItemRows.forEach(row => {
+            const descInput = row.querySelector('.item-description');
+            const qtyInput = row.querySelector('.item-quantity');
+            const priceInput = row.querySelector('.item-price');
+            const vatInput = row.querySelector('.item-vat');
+            
+            if (descInput && qtyInput && priceInput && vatInput) {
+                const description = descInput.value.trim();
+                const quantity = parseFloat(qtyInput.value) || 0;
+                const price = parseFloat(priceInput.value) || 0;
+                const vat = parseFloat(vatInput.value) || 0;
+                
+                // Only add non-empty line items
+                if (description || quantity > 0 || price > 0) {
+                    data.lineItems.push({
+                        description,
+                        quantity,
+                        price,
+                        vat
+                    });
+                }
+            }
+        });
+    }
+    
+    return data;
+}
+
+// Function to generate PDF
+function generatePdf() {
+    // Make sure the preview is up to date
+    updatePreview();
+    
+    // Get the invoice preview element
+    const element = document.getElementById('invoicePreview');
+    
+    // Configure html2pdf options
+    const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `Invoice-${document.getElementById('invoiceNumber').value || 'new'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    
+    // Generate PDF
+    html2pdf().set(opt).from(element).save();
+}
+
+// Function to print the invoice
+function printInvoice() {
+    // Make sure the preview is up to date
+    updatePreview();
+    
+    // Print the invoice preview
+    window.print();
+}
+
+// Function to generate XML
+function generateXml() {
+    console.log("Generate XML button clicked");
+    try {
+        const invoiceData = collectFormData();
+        console.log("Form data collected:", invoiceData);
+        const xmlContent = generateXRechnung(invoiceData);
+        console.log("XML generated successfully");
+        
+        // Create a download link for the XML file
+        const blob = new Blob([xmlContent], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Invoice-${invoiceData.invoiceNumber || 'new'}.xml`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error("Error generating XML:", error);
+        alert("Error generating XML: " + error.message);
+    }
+}
