@@ -486,6 +486,23 @@ function validateRequiredFields(data) {
         });
     }
     
+    // Calculate if there's an amount due
+    let totalAmount = 0;
+    data.lineItems.forEach(item => {
+        const lineTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0);
+        totalAmount += lineTotal;
+        
+        if (!data.reverseCharge) {
+            const vatAmount = lineTotal * ((parseFloat(item.vat) || 0) / 100);
+            totalAmount += vatAmount;
+        }
+    });
+    
+    // Check for payment terms or due date if there's an amount due (BR-CO-25)
+    if (totalAmount > 0 && !data.paymentTerms && !data.dueDate) {
+        errors.push("Either Payment terms or Due date is required when there's an amount due");
+    }
+    
     return errors;
 }
 
