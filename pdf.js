@@ -1,4 +1,4 @@
-// PDF generation functionality
+// pdf.js
 
 document.addEventListener('DOMContentLoaded', function() {
     // Generate PDF
