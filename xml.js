@@ -1,6 +1,6 @@
 // xml.js
 
-import { generateXRechnung } from './xml-generator.js';
+import { generateZugferd } from './xml-generator.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     // Generate XML
@@ -434,13 +434,140 @@ function printInvoice() {
     window.print();
 }
 
+// Function to validate required fields for ZUGFeRD XML
+function validateRequiredFields(data) {
+    const errors = [];
+    
+    // Check invoice number (BR-02)
+    if (!data.invoiceNumber.trim()) {
+        errors.push("Invoice number is required");
+    }
+    
+    // Check buyer name (BR-07)
+    if (!data.clientName.trim()) {
+        errors.push("Client name is required");
+    }
+    
+    // Check invoice date
+    if (!data.invoiceDate) {
+        errors.push("Invoice date is required");
+    }
+    
+    // Check seller name
+    if (!data.companyName.trim()) {
+        errors.push("Company name is required");
+    }
+    
+    // Check seller address
+    if (!data.companyAddress.trim()) {
+        errors.push("Company address is required");
+    }
+    
+    // Check client address
+    if (!data.clientAddress.trim()) {
+        errors.push("Client address is required");
+    }
+    
+    // Check line items
+    if (data.lineItems.length === 0) {
+        errors.push("At least one line item is required");
+    } else {
+        // Check each line item
+        data.lineItems.forEach((item, index) => {
+            if (!item.description.trim()) {
+                errors.push(`Line item #${index + 1}: Description is required`);
+            }
+            if (item.quantity <= 0) {
+                errors.push(`Line item #${index + 1}: Quantity must be greater than 0`);
+            }
+            if (item.price <= 0) {
+                errors.push(`Line item #${index + 1}: Price must be greater than 0`);
+            }
+        });
+    }
+    
+    return errors;
+}
+
+// Function to show validation errors
+function showValidationErrors(errors) {
+    // Create or get error container
+    let errorContainer = document.getElementById('validationErrors');
+    
+    if (!errorContainer) {
+        errorContainer = document.createElement('div');
+        errorContainer.id = 'validationErrors';
+        errorContainer.className = 'error-container';
+        
+        // Insert at the top of the form
+        const form = document.querySelector('form');
+        if (form) {
+            form.insertBefore(errorContainer, form.firstChild);
+        } else {
+            // If no form, insert before the generate button
+            const generateButton = document.getElementById('generateXml');
+            if (generateButton) {
+                generateButton.parentNode.insertBefore(errorContainer, generateButton);
+            }
+        }
+    }
+    
+    // Clear previous errors
+    errorContainer.innerHTML = '';
+    
+    // Add error heading
+    const heading = document.createElement('h3');
+    heading.textContent = 'Please fix the following errors:';
+    heading.style.color = 'red';
+    errorContainer.appendChild(heading);
+    
+    // Add error list
+    const errorList = document.createElement('ul');
+    errorList.style.color = 'red';
+    
+    errors.forEach(error => {
+        const errorItem = document.createElement('li');
+        errorItem.textContent = error;
+        errorList.appendChild(errorItem);
+    });
+    
+    errorContainer.appendChild(errorList);
+    
+    // Scroll to errors
+    errorContainer.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Function to clear validation errors
+function clearValidationErrors() {
+    const errorContainer = document.getElementById('validationErrors');
+    if (errorContainer) {
+        errorContainer.innerHTML = '';
+    }
+}
+
 // Function to generate XML
 function generateXml() {
     console.log("Generate XML button clicked");
     try {
+        // Clear previous validation errors
+        clearValidationErrors();
+        
+        // Collect form data
         const invoiceData = collectFormData();
         console.log("Form data collected:", invoiceData);
-        const xmlContent = generateXRechnung(invoiceData);
+        
+        // Validate required fields
+        const validationErrors = validateRequiredFields(invoiceData);
+        
+        if (validationErrors.length > 0) {
+            // Show validation errors
+            showValidationErrors(validationErrors);
+            console.error("Validation errors:", validationErrors);
+            return;
+        }
+        
+        // Generate XML
+        const xmlContent = generateZugferd(invoiceData);
         console.log("XML generated successfully");
         
         // Create a download link for the XML file
