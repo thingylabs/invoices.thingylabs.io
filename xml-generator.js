@@ -131,23 +131,6 @@ function generateZugferd(data) {
         <ram:ApplicableHeaderTradeSettlement>
             <ram:PaymentReference>${data.invoiceNumber}</ram:PaymentReference>
             <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
-            ${data.companyBankInfo ? `
-            <ram:SpecifiedTradeSettlementPaymentMeans>
-                <ram:TypeCode>58</ram:TypeCode>
-                <ram:PayeePartyCreditorFinancialAccount>
-                    <ram:IBANID>${data.companyBankInfo.split("\n")[0]}</ram:IBANID>
-                </ram:PayeePartyCreditorFinancialAccount>
-                ${data.companyBankInfo.split("\n")[1] ? `
-                <ram:PayeeSpecifiedCreditorFinancialInstitution>
-                    <ram:BICID>${data.companyBankInfo.split("\n")[1]}</ram:BICID>
-                </ram:PayeeSpecifiedCreditorFinancialInstitution>` : ""}
-            </ram:SpecifiedTradeSettlementPaymentMeans>` : ""}
-            <ram:InvoiceReferencedDocument>
-                <ram:IssuerAssignedID>${data.invoiceNumber}</ram:IssuerAssignedID>
-                <ram:FormattedIssueDateTime>
-                    <qdt:DateTimeString format="102">${formatDate(data.invoiceDate)}</qdt:DateTimeString>
-                </ram:FormattedIssueDateTime>
-            </ram:InvoiceReferencedDocument>
             <ram:ReceivableSpecifiedTradeAccountingAccount>
                 <ram:ID>${data.invoiceNumber}</ram:ID>
             </ram:ReceivableSpecifiedTradeAccountingAccount>
