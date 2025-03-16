@@ -1,5 +1,5 @@
 /**
- * Generates ZUGFeRD 2.1 Basic compliant XML from invoice data
+ * Generates ZUGFeRD 2.1/2.3.2 Extended compliant XML from invoice data
  * @param {Object} data - The invoice data
  * @returns {string} - The generated XML content
  */
@@ -109,10 +109,13 @@ function generateZugferd(data) {
     const bankAccount = bankInfo.length > 0 ? bankInfo[0] : '';
     const bankBIC = bankInfo.length > 1 ? bankInfo[1] : '';
     
-    // Generate a unique ID for the document
-    const documentId = `ZF-${data.invoiceNumber}-${Date.now()}`;
+    // Ensure we have a valid invoice number (BR-02)
+    const invoiceNumber = data.invoiceNumber || `INV-${Date.now()}`;
     
-    // Create XML structure for ZUGFeRD 2.1 Basic
+    // Ensure we have a valid buyer name (BR-07)
+    const buyerName = data.clientName || "Unknown Buyer";
+    
+    // Create XML structure for ZUGFeRD 2.3.2 Extended
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
                          xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
@@ -121,12 +124,12 @@ function generateZugferd(data) {
     <!-- HEADER -->
     <rsm:ExchangedDocumentContext>
         <ram:GuidelineSpecifiedDocumentContextParameter>
-            <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:basic</ram:ID>
+            <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:extended</ram:ID>
         </ram:GuidelineSpecifiedDocumentContextParameter>
     </rsm:ExchangedDocumentContext>
     
     <rsm:ExchangedDocument>
-        <ram:ID>${data.invoiceNumber}</ram:ID>
+        <ram:ID>${invoiceNumber}</ram:ID>
         <ram:TypeCode>380</ram:TypeCode>
         <ram:IssueDateTime>
             <udt:DateTimeString format="102">${invoiceDate.replace(/-/g, '')}</udt:DateTimeString>
@@ -193,7 +196,7 @@ function generateZugferd(data) {
             
             <!-- BUYER INFORMATION -->
             <ram:BuyerTradeParty>
-                <ram:Name>${data.clientName}</ram:Name>
+                <ram:Name>${buyerName}</ram:Name>
                 <ram:PostalTradeAddress>
                     <ram:PostcodeCode>${clientAddressParts.postalCode}</ram:PostcodeCode>
                     <ram:LineOne>${clientAddressParts.street}</ram:LineOne>
@@ -215,7 +218,7 @@ function generateZugferd(data) {
         
         <!-- PAYMENT INFORMATION -->
         <ram:ApplicableHeaderTradeSettlement>
-            <ram:PaymentReference>${data.invoiceNumber}</ram:PaymentReference>
+            <ram:PaymentReference>${invoiceNumber}</ram:PaymentReference>
             <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
             
             ${bankAccount ? `
