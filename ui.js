@@ -1,4 +1,4 @@
-// UI functions for Thingylabs Invoice Generator
+// ui.js
 
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', initUI);
