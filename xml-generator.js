@@ -54,6 +54,18 @@ function generateZugferd(data) {
         return { street, postalCode, city, country };
     };
 
+    // Escape XML special characters
+    const escapeXml = (str) => {
+        if (!str) return "";
+        return str
+            .toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&apos;");
+    };
+
     // Extract address parts
     const companyAddress = extractAddressParts(data.companyAddress);
     const clientAddress = extractAddressParts(data.clientAddress);
@@ -76,155 +88,156 @@ function generateZugferd(data) {
 
     const total = subtotal + totalVat;
 
-    // Build the XML structure as a JavaScript object
-    const xmlData = {
-        "rsm:CrossIndustryInvoice": {
-            "@xmlns:rsm": "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100",
-            "@xmlns:ram": "urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100",
-            "@xmlns:udt": "urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100",
-            "@xmlns:qdt": "urn:un:unece:uncefact:data:standard:QualifiedDataType:100",
-            "rsm:ExchangedDocumentContext": {
-                "ram:GuidelineSpecifiedDocumentContextParameter": {
-                    "ram:ID": "urn:factur-x.eu:1p0:extended",
-                },
-            },
-            "rsm:ExchangedDocument": {
-                "ram:ID": data.invoiceNumber,
-                "ram:TypeCode": "380",
-                "ram:IssueDateTime": {
-                    "udt:DateTimeString": {
-                        "@format": "102",
-                        "#text": formatDate(data.invoiceDate),
-                    },
-                },
-                ...(data.notes && {
-                    "ram:IncludedNote": {
-                        "ram:Content": data.notes,
-                    },
-                }),
-                ...(data.reverseCharge && {
-                    "ram:IncludedNote": {
-                        "ram:Content":
-                            "Reverse charge: VAT liability transfers to the recipient of this invoice",
-                    },
-                }),
-            },
-            "rsm:SupplyChainTradeTransaction": {
-                "ram:ApplicableHeaderTradeAgreement": {
-                    "ram:SellerTradeParty": {
-                        "ram:Name": data.companyName,
-                        "ram:PostalTradeAddress": {
-                            "ram:PostcodeCode": companyAddress.postalCode,
-                            "ram:LineOne": companyAddress.street,
-                            "ram:CityName": companyAddress.city,
-                            "ram:CountryID": companyAddress.country,
-                        },
-                        "ram:SpecifiedTaxRegistration": {
-                            "ram:ID": {
-                                "@schemeID": "VA",
-                                "#text": data.companyTaxId,
-                            },
-                        },
-                    },
-                    "ram:BuyerTradeParty": {
-                        "ram:Name": data.clientName,
-                        "ram:PostalTradeAddress": {
-                            "ram:PostcodeCode": clientAddress.postalCode,
-                            "ram:LineOne": clientAddress.street,
-                            "ram:CityName": clientAddress.city,
-                            "ram:CountryID": clientAddress.country,
-                        },
-                    },
-                },
-                "ram:ApplicableHeaderTradeDelivery": {
-                    ...(data.deliveryDateStart &&
-                        data.deliveryDateEnd && {
-                            "ram:ActualDeliverySupplyChainEvent": {
-                                "ram:OccurrenceDateTime": {
-                                    "udt:DateTimeString": {
-                                        "@format": "102",
-                                        "#text": formatDate(data.deliveryDateStart),
-                                    },
-                                },
-                            },
-                        }),
-                },
-                "ram:ApplicableHeaderTradeSettlement": {
-                    "ram:PaymentReference": data.invoiceNumber,
-                    "ram:InvoiceCurrencyCode": "EUR",
-                    ...(data.companyBankInfo && {
-                        "ram:SpecifiedTradeSettlementPaymentMeans": {
-                            "ram:TypeCode": "58",
-                            "ram:PayeePartyCreditorFinancialAccount": {
-                                "ram:IBANID": data.companyBankInfo.split("\n")[0],
-                            },
-                            ...(data.companyBankInfo.split("\n")[1] && {
-                                "ram:PayeeSpecifiedCreditorFinancialInstitution": {
-                                    "ram:BICID": data.companyBankInfo.split("\n")[1],
-                                },
-                            }),
-                        },
-                    }),
-                    "ram:ReceivableSpecifiedTradeAccountingAccount": {
-                        "ram:ID": data.invoiceNumber,
-                    },
-                    "ram:SpecifiedTradeSettlementHeaderMonetarySummation": {
-                        "ram:LineTotalAmount": subtotal.toFixed(2),
-                        "ram:TaxBasisTotalAmount": subtotal.toFixed(2),
-                        "ram:TaxTotalAmount": {
-                            "@currencyID": "EUR",
-                            "#text": totalVat.toFixed(2),
-                        },
-                        "ram:GrandTotalAmount": total.toFixed(2),
-                        "ram:DuePayableAmount": total.toFixed(2),
-                    },
-                },
-                "ram:IncludedSupplyChainTradeLineItem": data.lineItems.map(
-                    (item, index) => ({
-                        "ram:AssociatedDocumentLineDocument": {
-                            "ram:LineID": index + 1,
-                        },
-                        "ram:SpecifiedTradeProduct": {
-                            "ram:Name": item.description || "Item",
-                        },
-                        "ram:SpecifiedLineTradeAgreement": {
-                            "ram:NetPriceProductTradePrice": {
-                                "ram:ChargeAmount": parseFloat(item.price).toFixed(2),
-                            },
-                        },
-                        "ram:SpecifiedLineTradeDelivery": {
-                            "ram:BilledQuantity": {
-                                "@unitCode": "C62",
-                                "#text": parseFloat(item.quantity).toFixed(2),
-                            },
-                        },
-                        "ram:SpecifiedLineTradeSettlement": {
-                            "ram:ApplicableTradeTax": {
-                                "ram:TypeCode": "VAT",
-                                "ram:CategoryCode": data.reverseCharge ? "AE" : "S",
-                                "ram:RateApplicablePercent": data.reverseCharge
-                                    ? "0"
-                                    : parseFloat(item.vat).toFixed(2),
-                            },
-                            "ram:SpecifiedTradeSettlementLineMonetarySummation": {
-                                "ram:LineTotalAmount": (
-                                    parseFloat(item.quantity) * parseFloat(item.price)
-                                ).toFixed(2),
-                            },
-                        },
-                    })
-                ),
-            },
-        },
-    };
+    // Build XML string
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<rsm:CrossIndustryInvoice\n';
+    xml += '  xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"\n';
+    xml += '  xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"\n';
+    xml += '  xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100"\n';
+    xml += '  xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100">\n';
 
-    // Use the XMLBuilder to generate XML
-    const builder = new XMLBuilder({
-        ignoreAttributes: false,
-        format: true,
+    // Document Context
+    xml += '  <rsm:ExchangedDocumentContext>\n';
+    xml += '    <ram:GuidelineSpecifiedDocumentContextParameter>\n';
+    xml += '      <ram:ID>urn:factur-x.eu:1p0:extended</ram:ID>\n';
+    xml += '    </ram:GuidelineSpecifiedDocumentContextParameter>\n';
+    xml += '  </rsm:ExchangedDocumentContext>\n';
+
+    // Document Header
+    xml += '  <rsm:ExchangedDocument>\n';
+    xml += `    <ram:ID>${escapeXml(data.invoiceNumber)}</ram:ID>\n`;
+    xml += '    <ram:TypeCode>380</ram:TypeCode>\n';
+    xml += '    <ram:IssueDateTime>\n';
+    xml += '      <udt:DateTimeString format="102">';
+    xml += `${escapeXml(formatDate(data.invoiceDate))}</udt:DateTimeString>\n`;
+    xml += '    </ram:IssueDateTime>\n';
+    
+    if (data.notes) {
+        xml += '    <ram:IncludedNote>\n';
+        xml += `      <ram:Content>${escapeXml(data.notes)}</ram:Content>\n`;
+        xml += '    </ram:IncludedNote>\n';
+    }
+    
+    if (data.reverseCharge) {
+        xml += '    <ram:IncludedNote>\n';
+        xml += '      <ram:Content>Reverse charge: VAT liability transfers to the recipient of this invoice</ram:Content>\n';
+        xml += '    </ram:IncludedNote>\n';
+    }
+    xml += '  </rsm:ExchangedDocument>\n';
+
+    // Trade Transaction
+    xml += '  <rsm:SupplyChainTradeTransaction>\n';
+    
+    // Trade Agreement
+    xml += '    <ram:ApplicableHeaderTradeAgreement>\n';
+    xml += '      <ram:SellerTradeParty>\n';
+    xml += `        <ram:Name>${escapeXml(data.companyName)}</ram:Name>\n`;
+    xml += '        <ram:PostalTradeAddress>\n';
+    xml += `          <ram:PostcodeCode>${escapeXml(companyAddress.postalCode)}</ram:PostcodeCode>\n`;
+    xml += `          <ram:LineOne>${escapeXml(companyAddress.street)}</ram:LineOne>\n`;
+    xml += `          <ram:CityName>${escapeXml(companyAddress.city)}</ram:CityName>\n`;
+    xml += `          <ram:CountryID>${escapeXml(companyAddress.country)}</ram:CountryID>\n`;
+    xml += '        </ram:PostalTradeAddress>\n';
+    xml += '        <ram:SpecifiedTaxRegistration>\n';
+    xml += `          <ram:ID schemeID="VA">${escapeXml(data.companyTaxId)}</ram:ID>\n`;
+    xml += '        </ram:SpecifiedTaxRegistration>\n';
+    xml += '      </ram:SellerTradeParty>\n';
+    xml += '      <ram:BuyerTradeParty>\n';
+    xml += `        <ram:Name>${escapeXml(data.clientName)}</ram:Name>\n`;
+    xml += '        <ram:PostalTradeAddress>\n';
+    xml += `          <ram:PostcodeCode>${escapeXml(clientAddress.postalCode)}</ram:PostcodeCode>\n`;
+    xml += `          <ram:LineOne>${escapeXml(clientAddress.street)}</ram:LineOne>\n`;
+    xml += `          <ram:CityName>${escapeXml(clientAddress.city)}</ram:CityName>\n`;
+    xml += `          <ram:CountryID>${escapeXml(clientAddress.country)}</ram:CountryID>\n`;
+    xml += '        </ram:PostalTradeAddress>\n';
+    xml += '      </ram:BuyerTradeParty>\n';
+    xml += '    </ram:ApplicableHeaderTradeAgreement>\n';
+
+    // Delivery
+    if (data.deliveryDateStart && data.deliveryDateEnd) {
+        xml += '    <ram:ApplicableHeaderTradeDelivery>\n';
+        xml += '      <ram:ActualDeliverySupplyChainEvent>\n';
+        xml += '        <ram:OccurrenceDateTime>\n';
+        xml += '          <udt:DateTimeString format="102">';
+        xml += `${escapeXml(formatDate(data.deliveryDateStart))}</udt:DateTimeString>\n`;
+        xml += '        </ram:OccurrenceDateTime>\n';
+        xml += '      </ram:ActualDeliverySupplyChainEvent>\n';
+        xml += '    </ram:ApplicableHeaderTradeDelivery>\n';
+    }
+
+    // Settlement
+    xml += '    <ram:ApplicableHeaderTradeSettlement>\n';
+    xml += `      <ram:PaymentReference>${escapeXml(data.invoiceNumber)}</ram:PaymentReference>\n`;
+    xml += '      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>\n';
+    
+    if (data.companyBankInfo) {
+        const [iban, bic] = data.companyBankInfo.split("\n");
+        xml += '      <ram:SpecifiedTradeSettlementPaymentMeans>\n';
+        xml += '        <ram:TypeCode>58</ram:TypeCode>\n';
+        xml += '        <ram:PayeePartyCreditorFinancialAccount>\n';
+        xml += `          <ram:IBANID>${escapeXml(iban)}</ram:IBANID>\n`;
+        xml += '        </ram:PayeePartyCreditorFinancialAccount>\n';
+        if (bic) {
+            xml += '        <ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
+            xml += `          <ram:BICID>${escapeXml(bic)}</ram:BICID>\n`;
+            xml += '        </ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
+        }
+        xml += '      </ram:SpecifiedTradeSettlementPaymentMeans>\n';
+    }
+    
+    xml += '      <ram:ReceivableSpecifiedTradeAccountingAccount>\n';
+    xml += `        <ram:ID>${escapeXml(data.invoiceNumber)}</ram:ID>\n`;
+    xml += '      </ram:ReceivableSpecifiedTradeAccountingAccount>\n';
+    xml += '      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
+    xml += `        <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>\n`;
+    xml += `        <ram:TaxBasisTotalAmount>${subtotal.toFixed(2)}</ram:TaxBasisTotalAmount>\n`;
+    xml += `        <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>\n`;
+    xml += `        <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>\n`;
+    xml += `        <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>\n`;
+    xml += '      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
+    xml += '    </ram:ApplicableHeaderTradeSettlement>\n';
+
+    // Line Items
+    data.lineItems.forEach((item, index) => {
+        const quantity = parseFloat(item.quantity) || 0;
+        const price = parseFloat(item.price) || 0;
+        const vat = parseFloat(item.vat) || 0;
+        const lineTotal = quantity * price;
+
+        xml += '    <ram:IncludedSupplyChainTradeLineItem>\n';
+        xml += '      <ram:AssociatedDocumentLineDocument>\n';
+        xml += `        <ram:LineID>${index + 1}</ram:LineID>\n`;
+        xml += '      </ram:AssociatedDocumentLineDocument>\n';
+        xml += '      <ram:SpecifiedTradeProduct>\n';
+        xml += `        <ram:Name>${escapeXml(item.description || "Item")}</ram:Name>\n`;
+        xml += '      </ram:SpecifiedTradeProduct>\n';
+        xml += '      <ram:SpecifiedLineTradeAgreement>\n';
+        xml += '        <ram:NetPriceProductTradePrice>\n';
+        xml += `          <ram:ChargeAmount>${price.toFixed(2)}</ram:ChargeAmount>\n`;
+        xml += '        </ram:NetPriceProductTradePrice>\n';
+        xml += '      </ram:SpecifiedLineTradeAgreement>\n';
+        xml += '      <ram:SpecifiedLineTradeDelivery>\n';
+        xml += '        <ram:BilledQuantity unitCode="C62">';
+        xml += `${quantity.toFixed(2)}</ram:BilledQuantity>\n`;
+        xml += '      </ram:SpecifiedLineTradeDelivery>\n';
+        xml += '      <ram:SpecifiedLineTradeSettlement>\n';
+        xml += '        <ram:ApplicableTradeTax>\n';
+        xml += '          <ram:TypeCode>VAT</ram:TypeCode>\n';
+        xml += `          <ram:CategoryCode>${data.reverseCharge ? "AE" : "S"}</ram:CategoryCode>\n`;
+        xml += '          <ram:RateApplicablePercent>';
+        xml += `${data.reverseCharge ? "0" : vat.toFixed(2)}</ram:RateApplicablePercent>\n`;
+        xml += '        </ram:ApplicableTradeTax>\n';
+        xml += '        <ram:SpecifiedTradeSettlementLineMonetarySummation>\n';
+        xml += `          <ram:LineTotalAmount>${lineTotal.toFixed(2)}</ram:LineTotalAmount>\n`;
+        xml += '        </ram:SpecifiedTradeSettlementLineMonetarySummation>\n';
+        xml += '      </ram:SpecifiedLineTradeSettlement>\n';
+        xml += '    </ram:IncludedSupplyChainTradeLineItem>\n';
     });
 
-    return builder.build(xmlData);
+    xml += '  </rsm:SupplyChainTradeTransaction>\n';
+    xml += '</rsm:CrossIndustryInvoice>';
+
+    return xml;
 }
 
 // Export the function
