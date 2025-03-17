@@ -1,10 +1,3 @@
-// Ensure the library is loaded
-if (typeof fxp === "undefined") {
-    console.error("fast-xml-parser is not loaded!");
-} else {
-    console.log("fast-xml-parser is loaded!");
-}
-
 /**
  * Generates ZUGFeRD 2.3.2 Extended compliant XML from invoice data
  * @param {Object} data - The invoice data
