@@ -165,39 +165,7 @@ function generateZugferd(data) {
         xml += '    </ram:ApplicableHeaderTradeDelivery>\n';
     }
 
-    // Settlement
-    xml += '    <ram:ApplicableHeaderTradeSettlement>\n';
-    xml += `      <ram:PaymentReference>${escapeXml(data.invoiceNumber)}</ram:PaymentReference>\n`;
-    xml += '      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>\n';
-    
-    if (data.companyBankInfo) {
-        const [iban, bic] = data.companyBankInfo.split("\n");
-        xml += '      <ram:SpecifiedTradeSettlementPaymentMeans>\n';
-        xml += '        <ram:TypeCode>58</ram:TypeCode>\n';
-        xml += '        <ram:PayeePartyCreditorFinancialAccount>\n';
-        xml += `          <ram:IBANID>${escapeXml(iban)}</ram:IBANID>\n`;
-        xml += '        </ram:PayeePartyCreditorFinancialAccount>\n';
-        if (bic) {
-            xml += '        <ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
-            xml += `          <ram:BICID>${escapeXml(bic)}</ram:BICID>\n`;
-            xml += '        </ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
-        }
-        xml += '      </ram:SpecifiedTradeSettlementPaymentMeans>\n';
-    }
-    
-    xml += '      <ram:ReceivableSpecifiedTradeAccountingAccount>\n';
-    xml += `        <ram:ID>${escapeXml(data.invoiceNumber)}</ram:ID>\n`;
-    xml += '      </ram:ReceivableSpecifiedTradeAccountingAccount>\n';
-    xml += '      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
-    xml += `        <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>\n`;
-    xml += `        <ram:TaxBasisTotalAmount>${subtotal.toFixed(2)}</ram:TaxBasisTotalAmount>\n`;
-    xml += `        <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>\n`;
-    xml += `        <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>\n`;
-    xml += `        <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>\n`;
-    xml += '      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
-    xml += '    </ram:ApplicableHeaderTradeSettlement>\n';
-
-    // Line Items
+    // Line Items (müssen VOR Settlement kommen)
     data.lineItems.forEach((item, index) => {
         const quantity = parseFloat(item.quantity) || 0;
         const price = parseFloat(item.price) || 0;
@@ -233,6 +201,38 @@ function generateZugferd(data) {
         xml += '      </ram:SpecifiedLineTradeSettlement>\n';
         xml += '    </ram:IncludedSupplyChainTradeLineItem>\n';
     });
+
+    // Settlement
+    xml += '    <ram:ApplicableHeaderTradeSettlement>\n';
+    xml += `      <ram:PaymentReference>${escapeXml(data.invoiceNumber)}</ram:PaymentReference>\n`;
+    xml += '      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>\n';
+    
+    if (data.companyBankInfo) {
+        const [iban, bic] = data.companyBankInfo.split("\n");
+        xml += '      <ram:SpecifiedTradeSettlementPaymentMeans>\n';
+        xml += '        <ram:TypeCode>58</ram:TypeCode>\n';
+        xml += '        <ram:PayeePartyCreditorFinancialAccount>\n';
+        xml += `          <ram:IBANID>${escapeXml(iban)}</ram:IBANID>\n`;
+        xml += '        </ram:PayeePartyCreditorFinancialAccount>\n';
+        if (bic) {
+            xml += '        <ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
+            xml += `          <ram:BICID>${escapeXml(bic)}</ram:BICID>\n`;
+            xml += '        </ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
+        }
+        xml += '      </ram:SpecifiedTradeSettlementPaymentMeans>\n';
+    }
+    
+    xml += '      <ram:ReceivableSpecifiedTradeAccountingAccount>\n';
+    xml += `        <ram:ID>${escapeXml(data.invoiceNumber)}</ram:ID>\n`;
+    xml += '      </ram:ReceivableSpecifiedTradeAccountingAccount>\n';
+    xml += '      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
+    xml += `        <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>\n`;
+    xml += `        <ram:TaxBasisTotalAmount>${subtotal.toFixed(2)}</ram:TaxBasisTotalAmount>\n`;
+    xml += `        <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>\n`;
+    xml += `        <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>\n`;
+    xml += `        <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>\n`;
+    xml += '      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
+    xml += '    </ram:ApplicableHeaderTradeSettlement>\n';
 
     xml += '  </rsm:SupplyChainTradeTransaction>\n';
     xml += '</rsm:CrossIndustryInvoice>';
