@@ -128,7 +128,7 @@ function generateZugferd(data) {
     // Trade Transaction
     xml += '  <rsm:SupplyChainTradeTransaction>\n';
     
-    // Trade Agreement
+    // 1. Trade Agreement
     xml += '    <ram:ApplicableHeaderTradeAgreement>\n';
     xml += '      <ram:SellerTradeParty>\n';
     xml += `        <ram:Name>${escapeXml(data.companyName)}</ram:Name>\n`;
@@ -153,19 +153,51 @@ function generateZugferd(data) {
     xml += '      </ram:BuyerTradeParty>\n';
     xml += '    </ram:ApplicableHeaderTradeAgreement>\n';
 
-    // Delivery
+    // 2. Delivery
+    xml += '    <ram:ApplicableHeaderTradeDelivery>\n';
     if (data.deliveryDateStart && data.deliveryDateEnd) {
-        xml += '    <ram:ApplicableHeaderTradeDelivery>\n';
         xml += '      <ram:ActualDeliverySupplyChainEvent>\n';
         xml += '        <ram:OccurrenceDateTime>\n';
         xml += '          <udt:DateTimeString format="102">';
         xml += `${escapeXml(formatDate(data.deliveryDateStart))}</udt:DateTimeString>\n`;
         xml += '        </ram:OccurrenceDateTime>\n';
         xml += '      </ram:ActualDeliverySupplyChainEvent>\n';
-        xml += '    </ram:ApplicableHeaderTradeDelivery>\n';
     }
+    xml += '    </ram:ApplicableHeaderTradeDelivery>\n';
 
-    // Line Items (müssen VOR Settlement kommen)
+    // 3. Settlement
+    xml += '    <ram:ApplicableHeaderTradeSettlement>\n';
+    xml += `      <ram:PaymentReference>${escapeXml(data.invoiceNumber)}</ram:PaymentReference>\n`;
+    xml += '      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>\n';
+    
+    if (data.companyBankInfo) {
+        const [iban, bic] = data.companyBankInfo.split("\n");
+        xml += '      <ram:SpecifiedTradeSettlementPaymentMeans>\n';
+        xml += '        <ram:TypeCode>58</ram:TypeCode>\n';
+        xml += '        <ram:PayeePartyCreditorFinancialAccount>\n';
+        xml += `          <ram:IBANID>${escapeXml(iban)}</ram:IBANID>\n`;
+        xml += '        </ram:PayeePartyCreditorFinancialAccount>\n';
+        if (bic) {
+            xml += '        <ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
+            xml += `          <ram:BICID>${escapeXml(bic)}</ram:BICID>\n`;
+            xml += '        </ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
+        }
+        xml += '      </ram:SpecifiedTradeSettlementPaymentMeans>\n';
+    }
+    
+    xml += '      <ram:ReceivableSpecifiedTradeAccountingAccount>\n';
+    xml += `        <ram:ID>${escapeXml(data.invoiceNumber)}</ram:ID>\n`;
+    xml += '      </ram:ReceivableSpecifiedTradeAccountingAccount>\n';
+    xml += '      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
+    xml += `        <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>\n`;
+    xml += `        <ram:TaxBasisTotalAmount>${subtotal.toFixed(2)}</ram:TaxBasisTotalAmount>\n`;
+    xml += `        <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>\n`;
+    xml += `        <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>\n`;
+    xml += `        <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>\n`;
+    xml += '      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
+    xml += '    </ram:ApplicableHeaderTradeSettlement>\n';
+
+    // 4. Line Items
     data.lineItems.forEach((item, index) => {
         const quantity = parseFloat(item.quantity) || 0;
         const price = parseFloat(item.price) || 0;
@@ -201,38 +233,6 @@ function generateZugferd(data) {
         xml += '      </ram:SpecifiedLineTradeSettlement>\n';
         xml += '    </ram:IncludedSupplyChainTradeLineItem>\n';
     });
-
-    // Settlement
-    xml += '    <ram:ApplicableHeaderTradeSettlement>\n';
-    xml += `      <ram:PaymentReference>${escapeXml(data.invoiceNumber)}</ram:PaymentReference>\n`;
-    xml += '      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>\n';
-    
-    if (data.companyBankInfo) {
-        const [iban, bic] = data.companyBankInfo.split("\n");
-        xml += '      <ram:SpecifiedTradeSettlementPaymentMeans>\n';
-        xml += '        <ram:TypeCode>58</ram:TypeCode>\n';
-        xml += '        <ram:PayeePartyCreditorFinancialAccount>\n';
-        xml += `          <ram:IBANID>${escapeXml(iban)}</ram:IBANID>\n`;
-        xml += '        </ram:PayeePartyCreditorFinancialAccount>\n';
-        if (bic) {
-            xml += '        <ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
-            xml += `          <ram:BICID>${escapeXml(bic)}</ram:BICID>\n`;
-            xml += '        </ram:PayeeSpecifiedCreditorFinancialInstitution>\n';
-        }
-        xml += '      </ram:SpecifiedTradeSettlementPaymentMeans>\n';
-    }
-    
-    xml += '      <ram:ReceivableSpecifiedTradeAccountingAccount>\n';
-    xml += `        <ram:ID>${escapeXml(data.invoiceNumber)}</ram:ID>\n`;
-    xml += '      </ram:ReceivableSpecifiedTradeAccountingAccount>\n';
-    xml += '      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
-    xml += `        <ram:LineTotalAmount>${subtotal.toFixed(2)}</ram:LineTotalAmount>\n`;
-    xml += `        <ram:TaxBasisTotalAmount>${subtotal.toFixed(2)}</ram:TaxBasisTotalAmount>\n`;
-    xml += `        <ram:TaxTotalAmount currencyID="EUR">${totalVat.toFixed(2)}</ram:TaxTotalAmount>\n`;
-    xml += `        <ram:GrandTotalAmount>${total.toFixed(2)}</ram:GrandTotalAmount>\n`;
-    xml += `        <ram:DuePayableAmount>${total.toFixed(2)}</ram:DuePayableAmount>\n`;
-    xml += '      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>\n';
-    xml += '    </ram:ApplicableHeaderTradeSettlement>\n';
 
     xml += '  </rsm:SupplyChainTradeTransaction>\n';
     xml += '</rsm:CrossIndustryInvoice>';
